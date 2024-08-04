@@ -13,6 +13,7 @@ from torchvision.transforms import functional as F
 from generator import prob_fix_color, gumbel_color_fix_seed
 from sklearn.cluster import KMeans
 import numpy as np
+from tqdm import tqdm
 
 def seed2texture(seeds_train,seeds_fixed,control_point,coordinates,h,w):
     seeds_ratio = 0.7
@@ -37,8 +38,8 @@ iteration_number = 200
 device = torch.device('cuda:0')
 
 modelTool.seed_everything()
-model = modelTool.get_det_model(pretrain_weights='checkpoints/freeze17_5000.pt', freeze = 17, device=device)
-modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_5000.pt', detModel=model)
+model = modelTool.get_det_model(pretrain_weights='checkpoints/freeze17_7000_4step_usap_1500.pt', freeze = 17, device=device)
+modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_7000_4step_usap_1500.pt', detModel=model)
 model.eval()
 
 
@@ -64,10 +65,10 @@ for i in range(3):
 coordinates = torch.stack(torch.meshgrid(torch.arange(h), torch.arange(w)), -1).to(device)
 
 
-for car_idx in range(10000, 13400, 17):
+for car_idx in tqdm(range(10000, 13400, 17)):
     colors_set = np.zeros((20,256,256,3))
     for i in range(0,20):
-        colors_set[i]=cv2.imread(f'dataset/test/{str(car_idx)}/{str(i+40)}.png')[:,:,::-1]
+        colors_set[i]=cv2.imread(f'dataset/test/{str(car_idx)}/{str(i+40).zfill(3)}.png')[:,:,::-1]
     colors_set=colors_set.reshape(colors_set.shape[0]*colors_set.shape[1]*colors_set.shape[2],-1)
     estimator = KMeans(n_clusters=num_colors,n_init=n_init)
     estimator.fit(colors_set)

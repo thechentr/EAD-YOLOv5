@@ -6,9 +6,11 @@ from logger import Logger
 from utils.loss import ComputeLoss
 from eval import evaluation
 from patch import init_usap_patch, apply_patch
+from tqdm import tqdm
 
 
 def main(epoch_number, batch_size):
+    torch.cuda.set_device(0)
     device = torch.device('cuda:0')
     
     model = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
@@ -26,14 +28,14 @@ def main(epoch_number, batch_size):
 
     for epoch in range(epoch_number):
         dataset.shuffle()
-        for iter, (imgs_tensor, targets, rotated_points) in enumerate(dataloader):
+        for iter, (imgs_tensor, targets, rotated_points) in tqdm(enumerate(dataloader), total=len(dataloader)):
             model.train()
             imgs_tensor = imgs_tensor.cuda()
             targets = targets.cuda()
             rotated_points = rotated_points.cuda()
 
 
-            patch = init_usap_patch()
+            patch = init_usap_patch().to(device)
             patch = patch*255
             patch = patch.unsqueeze(0)
             patch = patch.repeat(imgs_tensor.shape[0],1,1,1)

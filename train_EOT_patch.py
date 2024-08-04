@@ -17,8 +17,8 @@ iteration_number = 200
 device = torch.device('cuda:0')
 
 modelTool.seed_everything()
-model = modelTool.get_det_model(pretrain_weights='checkpoints/freeze17_5000.pt', freeze = 17, device=device)
-modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_5000.pt', detModel=model)
+model = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
+modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_7000_4step_usap_1500.pt', detModel=model)
 model.eval()
 
 for car_idx in range(10000, 13400, 17):

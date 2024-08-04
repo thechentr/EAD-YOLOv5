@@ -11,9 +11,9 @@ import cv2
 def main(epoch_number, batch_size):
     device = torch.device('cuda:0')
     
-    model = modelTool.get_det_model(pretrain_weights='checkpoints/yolo_carla.pt', freeze = 17, device=device)
+    model = modelTool.get_det_model(pretrain_weights='checkpoints/freeze17_7500.pt', freeze = 17, device=device)
     model.eval()
-    modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolo_carla.pt', detModel=model)
+    modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_7500.pt', detModel=model)
 
     max_steps = 4
     ead = modelTool.get_ead_model(max_steps=max_steps)

@@ -11,9 +11,12 @@ def yolo_collate_fn(batch_list):
 
 class YOLODataset():
     def __init__(self, split, batch_size) -> None:
-        if split!='train' and split!='test':
+        if split == 'train':
+            self.dataset = [os.path.join(f'dataset/{split}', str(car_idx).zfill(2), str(view_idx).zfill(3)+'.png') for car_idx in range(70000, 83600, 17*10) for view_idx in range(150)]
+        elif split == 'test':
+            self.dataset = [os.path.join(f'dataset/{split}', str(car_idx).zfill(2), str(view_idx).zfill(3)+'.png') for car_idx in range(10000, 13400, 17) for view_idx in range(150)]
+        else:
             raise NotImplementedError
-        self.dataset = [os.path.join(f'dataset/{split}', str(car_idx).zfill(2), str(view_idx).zfill(3)+'.png') for car_idx in range(40) for view_idx in range(100)]
         self.batch_size = batch_size
     
     def shuffle(self):
@@ -82,10 +85,10 @@ class AdvYOLODataset():
     
 class EADYOLODataset():
     def __init__(self, split, batch_size, max_steps, attack_method) -> None:
-        if split=='train':
-            self.dataset = [os.path.join(f'dataset/{split}', str(car_idx).zfill(2), str(view_idx)) for car_idx in range(40) for view_idx in range(10)]
-        elif split=='test':
-            self.dataset = [os.path.join(f'dataset/{split}', str(car_idx).zfill(2), str(view_idx)) for car_idx in range(40) for view_idx in range(1)]
+        if split == 'train':
+            self.dataset = [os.path.join(f'dataset/{split}', str(car_idx).zfill(2), str(view_idx).zfill(3)) for car_idx in range(70000, 83600, 17*10) for view_idx in range(150)]
+        elif split == 'test':
+            self.dataset = [os.path.join(f'dataset/{split}', str(car_idx).zfill(2), str(view_idx).zfill(3)) for car_idx in range(10000, 13400, 17) for view_idx in range(150)]
         else:
             raise NotImplementedError
     
@@ -98,17 +101,17 @@ class EADYOLODataset():
 
     def __getitem__(self, index):
         images = torch.zeros((self.batch_size, self.max_steps, 256, 256, 3))
-        patches = torch.ones((self.batch_size, self.max_steps, 64, 111, 3))*(-255)
+        patches = torch.ones((self.batch_size, self.max_steps, 256, 256, 3))*(-255)
         labels = torch.zeros((self.batch_size, self.max_steps, 6))
         rpoints = torch.zeros((self.batch_size, self.max_steps, 4, 2))
         for batch_idx in range(self.batch_size):
             car_path, instance_idx = os.path.split(self.dataset[index*self.batch_size+batch_idx])
-            instance_idx = int(instance_idx)*100 + 50
+            instance_idx = int(instance_idx)
             for step_idx in range(self.max_steps):
                 if step_idx == 0:
                     image_path = os.path.join(car_path, str(instance_idx).zfill(3)+'.png')
                 else:
-                    image_path = os.path.join(car_path, str(instance_idx + np.random.randint(-50,50)).zfill(3)+'.png')
+                    image_path = os.path.join(car_path, str(np.random.randint(0,150)).zfill(3)+'.png')
                 image = cv2.imread(image_path)[:,:,::-1].copy()
                 # image = cv2.resize(image, (256, 256))
                 images[batch_idx, step_idx] = torch.tensor(image, dtype=float)

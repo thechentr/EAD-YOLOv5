@@ -12,13 +12,13 @@ class TrainCarlaPatchDataset(Dataset):
         super(TrainCarlaPatchDataset).__init__()
         self.dataset_path = os.path.join(f'dataset/{split}', str(car_idx))
         if split == 'train':
-            self.dataset = [f'{str(i) }.png' for i in range(0, 150)]
+            self.dataset = [f'{str(i).zfill(3)}.png' for i in range(0, 150)]
             if front_only:
-                self.dataset = [f'{str(i*30+15)}.png' for i in range(0, 5)]
+                self.dataset = [f'{str(i*30+15).zfill(3)}.png' for i in range(0, 5)]
         elif split == 'test':
-            self.dataset = [f'{str(i) }.png' for i in range(0, 150)]
+            self.dataset = [f'{str(i).zfill(3)}.png' for i in range(0, 150)]
             if front_only:
-                self.dataset = [f'{str(i*30+15)}.png' for i in range(0, 5)]
+                self.dataset = [f'{str(i*30+15).zfill(3)}.png' for i in range(0, 5)]
         else:
             raise NotImplementedError
 

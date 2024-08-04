@@ -19,8 +19,8 @@ def upsample_patch(patch):
         patch = patch.reshape(B, S, 256, 256, C)
     return patch
 
-def init_usap_patch():
-    patch = torch.ones((32, 64, 3)).uniform_(0,1)
+def init_usap_patch(size=(256, 256, 3)):
+    patch = torch.ones(size).uniform_(0,1)
     return patch
 
 def apply_patch(image, patch, rotated_points, patch_ratio=1.0):
