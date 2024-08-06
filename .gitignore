@@ -171,3 +171,4 @@ debug/
 # checkpoint
 checkpoints/
 dataset/
+logs/

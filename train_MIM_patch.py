@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from logger import Logger
 import os
 import numpy as np
+from tqdm import tqdm
 
 
 
@@ -18,13 +19,13 @@ iteration_number = 400
 device = torch.device('cuda:0')
 
 modelTool.seed_everything()
-model = modelTool.get_det_model(pretrain_weights='checkpoints/freeze17_5000.pt', freeze = 17, device=device)
-modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_5000.pt', detModel=model)
+model = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
+modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolov5_2000.pt', detModel=model)
 model.eval()
 
-for car_idx in range(10000, 13400, 17):
+for car_idx in tqdm(range(10000, 13400, 17)):
     print(f'train DIM patch for car {car_idx}')
-    logger = Logger('patch loss')
+    logger = Logger('patch loss', path='logs')
     dataset = TrainCarlaPatchDataset(car_idx, split='test', front_only=True)
     print(len(dataset))
     datalodaer = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=False)

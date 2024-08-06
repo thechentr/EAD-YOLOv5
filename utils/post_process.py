@@ -74,7 +74,6 @@ def post_process_pred(pred, img, conf_thres=0.25):
         classes=None, agnostic=False, 
         max_det=1000)
     boxes = post_process_xlw(im0_copy, pred)  #（imgIndex, cls, conf， x， , y, w, h）
-
     draw_boxes_on_grid_image(im0_copy*255, boxes)
 
     if boxes.shape[0] > 0:

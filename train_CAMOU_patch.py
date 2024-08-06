@@ -38,12 +38,12 @@ iteration_number = 200
 device = torch.device('cuda:0')
 
 modelTool.seed_everything()
-model = modelTool.get_det_model(pretrain_weights='checkpoints/freeze17_7000_4step_usap_1500.pt', freeze = 17, device=device)
-modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_7000_4step_usap_1500.pt', detModel=model)
+model = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
+modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolov5_2000.pt', detModel=model)
 model.eval()
 
 
-num_points = 40
+num_points = 20
 resolution = 1
 h, w = int(32 / resolution), int(64 / resolution)
 lr_points = 5e-4
@@ -82,7 +82,7 @@ for car_idx in tqdm(range(10000, 13400, 17)):
 
 
     print(f'train CAMOU patch for car {car_idx}')
-    logger = Logger('patch loss')
+    logger = Logger('patch loss', path='logs')
     dataset = TrainCarlaPatchDataset(car_idx, split='test')
     datalodaer = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     iteration = 0
@@ -92,7 +92,7 @@ for car_idx in tqdm(range(10000, 13400, 17)):
             rotated_points = rotated_points.cuda()
             patch = seed2texture(seeds_train,seeds_fixed,control_point,coordinates,h,w)
             patch = patch.permute(0,3,1,2)/255
-            patch = F.resize(patch, size=[64,111])
+            patch = F.resize(patch, size=[32,64])
             
             patch = patch.permute(0,2,3,1)*255
             

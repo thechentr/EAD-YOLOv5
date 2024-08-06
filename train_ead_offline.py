@@ -6,14 +6,15 @@ from logger import Logger
 from utils.loss import ComputeLoss
 from eval_ead import evaluation
 from patch import apply_patch, upsample_patch
+from utils.post_process import post_process_pred
 import cv2
 
 def main(epoch_number, batch_size):
     device = torch.device('cuda:0')
     
-    model = modelTool.get_det_model(pretrain_weights='checkpoints/freeze17_7500.pt', freeze = 17, device=device)
+    model = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
     model.eval()
-    modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_7500.pt', detModel=model)
+    modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolov5_2000.pt', detModel=model)
 
     max_steps = 4
     ead = modelTool.get_ead_model(max_steps=max_steps)
@@ -24,12 +25,12 @@ def main(epoch_number, batch_size):
     optimizer = modelTool.get_optimizer(ead, lr=0.0001)
     compute_loss = ComputeLoss(model)  # init loss class
 
-    loss_logger = Logger(name='EAD YOLO Loss', path='checkpoints')
-    mAP_logger = Logger(name='EAD YOLO mAP', path='checkpoints')
+    loss_logger = Logger(name='EAD YOLO Loss', path='logs')
+    mAP_logger = Logger(name='EAD YOLO mAP', path='logs')
 
+    from tqdm import tqdm 
     for epoch in range(epoch_number):
-        dataset.shuffle()
-        for iter, (images, patches, targets, rotated_points) in enumerate(dataloader):
+        for iter, (images, patches, targets, rotated_points) in tqdm(enumerate(dataloader), total=len(dataloader)):
             images = images.cuda()
             patches = patches.cuda()
             targets = targets.cuda()
@@ -38,8 +39,8 @@ def main(epoch_number, batch_size):
             patches = upsample_patch(patches)
             images = apply_patch(images, patches, rotated_points, patch_ratio=0.2)
 
-            for step in range(max_steps):
-                cv2.imwrite(f'test{step}.png', images[0,step].detach().cpu().numpy()[:,:,::-1])
+            # for step in range(max_steps):
+            #     cv2.imwrite(f'logs/test{step}.png', images[0,step].detach().cpu().numpy()[:,:,::-1])
             
             with torch.no_grad():
                 feats = model.ead_stage_1(images)
@@ -53,6 +54,10 @@ def main(epoch_number, batch_size):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            
+            with torch.no_grad():
+                iimg = images[0:4, -1, :].squeeze(1).permute(0, 3, 1, 2) * 255
+                post_process_pred(preds, iimg, conf_thres=0.5)
 
         with torch.no_grad():
             _, _, _, _, mAP = evaluation(batch_size=40, model=model, policy=ead, max_steps=4, attack_method='clean')
@@ -65,4 +70,4 @@ def main(epoch_number, batch_size):
 
 if __name__ == '__main__':
     modelTool.seed_everything()
-    main(200, 32)
+    main(200, 256)

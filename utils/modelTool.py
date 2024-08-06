@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 
 def get_ead_model(max_steps):
-    C,H,W = 64, 32, 56
+    C,H,W = 64, 32, 32
     ead = Transformer(num_layers=2,
                         num_heads=8,
                         num_blocks=(max_steps*C),

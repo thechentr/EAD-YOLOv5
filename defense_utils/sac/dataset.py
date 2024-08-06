@@ -8,7 +8,7 @@ from patch import init_usap_patch
 import os
 
 class CarlaDatasetSAC(Dataset):
-    def __init__(self, attack_method, dataset_path='dataset/train') -> None:
+    def __init__(self, attack_method, dataset_path='dataset/test') -> None:
         self.attack_method = attack_method
         self.dataset_path = dataset_path
         self.dataset = glob.glob(f'{dataset_path}/*/*.png')

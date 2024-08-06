@@ -8,7 +8,7 @@ from attack import PGD_attack_step
 from torch.utils.data import DataLoader
 from logger import Logger
 import os
-
+from tqdm import tqdm
 
 
 batch_size = 100
@@ -18,12 +18,12 @@ device = torch.device('cuda:0')
 
 modelTool.seed_everything()
 model = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
-modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_7000_4step_usap_1500.pt', detModel=model)
+modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolov5_2000.pt', detModel=model)
 model.eval()
 
-for car_idx in range(10000, 13400, 17):
+for car_idx in tqdm(range(10000, 13400, 17)):
     print(f'train EOT patch for car {car_idx}')
-    logger = Logger('patch loss')
+    logger = Logger('patch loss', path='logs')
     dataset = TrainCarlaPatchDataset(car_idx, split='test')
     datalodaer = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
@@ -50,8 +50,8 @@ for car_idx in range(10000, 13400, 17):
 
             patch = PGD_attack_step(patch, loss, learning_rate)
 
-            with torch.no_grad():
-                post_process_pred(preds, adv_image[0:4], conf_thres=0.5)
+            # with torch.no_grad():
+            #     post_process_pred(preds, adv_image[0:4], conf_thres=0.5)
             iteration += 1
             patch_path = f'dataset/patch_train/{str(car_idx).zfill(2)}'
         if not os.path.exists(patch_path):

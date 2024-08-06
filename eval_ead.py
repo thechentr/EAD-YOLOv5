@@ -41,7 +41,7 @@ def process_batch(detections, labels, iouv):
 
 @torch.no_grad()
 def evaluation(
-    batch_size=16,  # batch size
+    batch_size=20,  # batch size
     conf_thres=0.25,  # confidence threshold
     iou_thres=0.6,  # NMS IoU threshold
     max_det=300,  # maximum detections per image
@@ -78,8 +78,8 @@ def evaluation(
     p, r, mp, mr, map50, ap50, map = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     stats, ap = [], []
 
-
-    for _, (imgs_tensor, patches, targets, rotated_points) in enumerate(dataloader):
+    from tqdm import tqdm
+    for i, (imgs_tensor, patches, targets, rotated_points) in tqdm(enumerate(dataloader)):
         imgs_tensor = imgs_tensor.cuda()
         patches = patches.cuda()
         targets = targets[:,-1].cuda()
@@ -155,25 +155,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-am', '--attack_method', type=str, help='attack method')
     args = parser.parse_args()
-    batch_size = 40
+    batch_size = 150
     device = torch.device('cuda:0')
     # modelTool.seed_everything()
-    model = modelTool.get_det_model(pretrain_weights='checkpoints/yolo_carla.pt', freeze = 17, device=device)
+    model = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
     model.train()
-    modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolo_carla.pt', detModel=model)
+    modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_7000_4step_usap_501.pt', detModel=model)
 
     max_steps = 4
-    C,H,W = 64, 32, 56
-    policy = Transformer(num_layers=2,
-                        num_heads=8,
-                        num_blocks=(max_steps*C),
-                        residual_pdrop=0.1,
-                        attention_pdrop=0.1,
-                        embedding_pdrop=0.1,
-                        embedding_dim=H*W,
-                        vertical_scale=30,
-                        horizontal_scale=60,
-                        action_dim=2).cuda()
+    policy = modelTool.get_ead_model(max_steps=max_steps)
     policy.load_state_dict(torch.load('checkpoints/ead_offline.pt'))
 
     _, _, _, _, mAP = evaluation(batch_size=batch_size, model=model, policy=policy, max_steps=4, attack_method=args.attack_method)

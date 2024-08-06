@@ -193,9 +193,9 @@ if __name__ == '__main__':
     batch_size = 40
     device = torch.device('cuda:0')
     modelTool.seed_everything()
-    model = modelTool.get_det_model(pretrain_weights='checkpoints/yolo_carla.pt', freeze = 17, device=device)
+    model = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
     model.train()
-    modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolo_carla.pt', detModel=model)
+    modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolov5_2000.pt', detModel=model)
     _, _, _, _, mAP = evaluation(batch_size=batch_size, model=model, attack_method=args.attack_method, defense_method=args.defense_method)
     
 

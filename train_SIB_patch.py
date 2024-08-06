@@ -19,12 +19,12 @@ device = torch.device('cuda:0')
 
 modelTool.seed_everything()
 model = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
-modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_7000_4step_usap_1500.pt', detModel=model)
+modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolov5_2000.pt', detModel=model)
 model.eval()
 
 for car_idx in tqdm(range(10000, 13400, 17)):
     print(f'train SIB patch for car {car_idx}')
-    logger = Logger('patch loss')
+    logger = Logger('patch loss', path='logs')
     dataset = TrainCarlaPatchDataset(car_idx, split='test')
     datalodaer = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
@@ -57,6 +57,7 @@ for car_idx in tqdm(range(10000, 13400, 17)):
             loss = 0.5*loss_obj + 0.5*1/loss_sib
             logger.add_value(loss.item())
             # logger.plot()
+            print(loss.item())
 
             patch = PGD_attack_step(patch, loss, learning_rate)
             # with torch.no_grad():

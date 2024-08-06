@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import json
 import random
-from patch import init_usap_patch
+from patch import init_usap_patch, apply_patch, upsample_patch
 
 def yolo_collate_fn(batch_list):
     return (batch_list[0][i] for i in range(len(batch_list[0])))
@@ -44,7 +44,7 @@ class YOLODataset():
 class AdvYOLODataset():
     def __init__(self, batch_size, attack_method) -> None:
 
-        self.dataset = [os.path.join(f'dataset/test', str(car_idx).zfill(2), '050.png') for car_idx in range(40)]
+        self.dataset = [os.path.join(f'dataset/test', str(car_idx).zfill(2), '015.png') for car_idx in range(10000, 13400, 17)]
         self.batch_size = batch_size
         self.attack_method = attack_method
     
@@ -53,7 +53,7 @@ class AdvYOLODataset():
 
     def __getitem__(self, index):
         images = torch.zeros((self.batch_size, 256, 256, 3))
-        patches = torch.zeros((self.batch_size, 64, 111, 3))
+        patches = torch.zeros((self.batch_size, 32, 64, 3))
         labels = torch.zeros((self.batch_size, 6))
         rpoints = torch.zeros((self.batch_size, 4, 2))
         for i in range(self.batch_size):
@@ -86,9 +86,9 @@ class AdvYOLODataset():
 class EADYOLODataset():
     def __init__(self, split, batch_size, max_steps, attack_method) -> None:
         if split == 'train':
-            self.dataset = [os.path.join(f'dataset/{split}', str(car_idx).zfill(2), str(view_idx).zfill(3)) for car_idx in range(70000, 83600, 17*10) for view_idx in range(150)]
+            self.dataset = [os.path.join(f'dataset/{split}', str(car_idx).zfill(2), str(view_idx).zfill(3)) for car_idx in range(70000, 83600, 17) for view_idx in range(1)]
         elif split == 'test':
-            self.dataset = [os.path.join(f'dataset/{split}', str(car_idx).zfill(2), str(view_idx).zfill(3)) for car_idx in range(10000, 13400, 17) for view_idx in range(150)]
+            self.dataset = [os.path.join(f'dataset/{split}', str(car_idx).zfill(2), str(view_idx).zfill(3)) for car_idx in range(10000, 13400, 17) for view_idx in range(1)]
         else:
             raise NotImplementedError
     
