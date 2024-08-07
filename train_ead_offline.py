@@ -18,6 +18,7 @@ def main(epoch_number, batch_size):
 
     max_steps = 4
     ead = modelTool.get_ead_model(max_steps=max_steps)
+    ead.load_state_dict(torch.load('checkpoints/ead_offline.pt'))
 
     dataset = EADYOLODataset(split='train', batch_size=batch_size, max_steps=max_steps, attack_method='usap')
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=yolo_collate_fn, drop_last=True)

@@ -155,12 +155,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-am', '--attack_method', type=str, help='attack method')
     args = parser.parse_args()
-    batch_size = 150
+    batch_size = 40
     device = torch.device('cuda:0')
     # modelTool.seed_everything()
     model = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
     model.train()
-    modelTool.transfer_paramaters(pretrain_weights='checkpoints/freeze17_7000_4step_usap_501.pt', detModel=model)
+    modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolov5_2000.pt', detModel=model)
 
     max_steps = 4
     policy = modelTool.get_ead_model(max_steps=max_steps)
