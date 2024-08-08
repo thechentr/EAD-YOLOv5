@@ -122,6 +122,7 @@ class EG3DRender(object):
          - imgs_tensor: [bs, 3, w, h]
          - rotated_points: [bs, 4, 2]
         """
+        actions = torch.tensor(actions, device=self.device)
         self.states = self.states + actions
 
         self.imgs_tensor, self.cam2world_pose = self._render(self.cars_seeds, self.states)

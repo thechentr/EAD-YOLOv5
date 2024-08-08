@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import random
-from env import EADEnv
+# from env import EADEnv
+from EG3DEnv import EG3DEnv
 from torch.distributions import MultivariateNormal
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -14,18 +15,18 @@ import utils.modelTool as modelTool
 from utils.loss import ComputeLoss
 
 class PPO:
-    def __init__(self, env:EADEnv, batch_size) -> None:
+    def __init__(self, env:EG3DEnv, batch_size) -> None:
         self.env = env     
         self.rollout_batch_size = batch_size
         device = torch.device('cuda:0')
-        self.sensory = modelTool.get_det_model(pretrain_weights='checkpoints/yolo_carla.pt', freeze = 17, device=device)
+        self.sensory = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
         self.sensory.eval()
-        modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolo_carla.pt', detModel=self.sensory)
+        modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolov5_2000.pt', detModel=self.sensory)
 
         self.compute_loss = ComputeLoss(self.sensory)
 
         self.ead = modelTool.get_ead_model(max_steps=4)
-        self.ead.load_state_dict(torch.load('checkpoints/ead_offline_small.pt'))
+        self.ead.load_state_dict(torch.load('checkpoints/ead_offlinecp.pt'), strict=False)
         self.ead.eval()
         print(self.ead.action_scaling)
         
@@ -61,6 +62,8 @@ class PPO:
         refined_feats = self.ead(obs)
         mean = self.ead.get_action(refined_feats)
         _, train_out = self.sensory.ead_stage_2(refined_feats)
+        print(obs.shape)
+        print(targets)
         loss, _ = self.compute_loss(train_out, targets[:,-1,:], loss_items=['box', 'obj'])  # loss scaled by batch_size
 
         dist = MultivariateNormal(mean,self.cov_mat)   
@@ -177,7 +180,7 @@ class PPO:
             # self.eval_acc_adv_logger.plot()
 
             # self.checkpoints_manager.save_best_checkpoints(epoch, self.lr, self.rollout_batch_size, acc_adv, 'None')
-            car_dataset = np.array(np.arange(0,41).tolist()*10)
+            car_dataset = np.array(list(range(70000, 83600, 17)))
             random.shuffle(car_dataset)
             car_dataset = car_dataset[0:self.rollout_batch_size*(len(car_dataset)//self.rollout_batch_size)]
             car_dataset = car_dataset.reshape(len(car_dataset)//self.rollout_batch_size, -1)
@@ -226,11 +229,11 @@ class PPO:
                     self.critic_logger.add_value(critic_loss.item())
                     self.critic_logger.add_value(critic_loss_sum)
                     self.critic_logger.plot()
-
+        torch.save(self.ead.state_dict(), 'checkpoints/ead_online_RL.py')
 
 torch.manual_seed('114514')
 batch_size = 1
-env = gym.make('EADEnv-v0',batch_size=batch_size, max_step=3)
+env = gym.make('EG3DEnv-v0',batch_size=batch_size, max_step=3)
 print('env.observation_space.shape', env.observation_space.shape)
 print('env.action_space.shape', env.action_space.shape)
 

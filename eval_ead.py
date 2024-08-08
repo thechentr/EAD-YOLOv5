@@ -152,6 +152,7 @@ def evaluation(
 
 
 if __name__ == '__main__':
+    modelTool.seed_everything()
     parser = argparse.ArgumentParser()
     parser.add_argument('-am', '--attack_method', type=str, help='attack method')
     args = parser.parse_args()
@@ -159,7 +160,7 @@ if __name__ == '__main__':
     device = torch.device('cuda:0')
     # modelTool.seed_everything()
     model = modelTool.get_det_model(pretrain_weights='checkpoints/yolov5n.pt', freeze = 17, device=device)
-    model.train()
+    model.eval()
     modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolov5_2000.pt', detModel=model)
 
     max_steps = 4

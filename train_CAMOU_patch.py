@@ -43,9 +43,9 @@ modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolov5_2000.pt', det
 model.eval()
 
 
-num_points = 20
-resolution = 1
-h, w = int(32 / resolution), int(64 / resolution)
+num_points = 10
+resolution = 2
+h, w = int(16 / resolution), int(32 / resolution)
 lr_points = 5e-4
 lr_seeds = 5e-3
 
@@ -92,11 +92,11 @@ for car_idx in tqdm(range(10000, 13400, 17)):
             rotated_points = rotated_points.cuda()
             patch = seed2texture(seeds_train,seeds_fixed,control_point,coordinates,h,w)
             patch = patch.permute(0,3,1,2)/255
-            patch = F.resize(patch, size=[32,64])
+            patch1 = F.resize(patch, size=[32,64])
             
-            patch = patch.permute(0,2,3,1)*255
+            patch1 = patch1.permute(0,2,3,1)*255
             
-            eot_patch = patch*255
+            eot_patch = patch1*255
             eot_patch = eot_patch.repeat(image.shape[0],1,1,1)
             eot_patch = upsample_patch(eot_patch)
 

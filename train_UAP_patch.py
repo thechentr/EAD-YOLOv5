@@ -15,7 +15,7 @@ import numpy as np
 batch_size = 100
 learning_rate = 8/255
 # iteration_number = 200
-iteration_number = 500
+iteration_number = 200
 device = torch.device('cuda:0')
 
 modelTool.seed_everything()
@@ -54,7 +54,7 @@ while iteration < iteration_number:
         with torch.no_grad():
             post_process_pred(preds, adv_image[0:1], conf_thres=0.5)
         iteration += 1
-        if iteration ==iteration_number:
+        if iteration == iteration_number:
             break
 
 for car_idx in range(10000, 13400, 17):

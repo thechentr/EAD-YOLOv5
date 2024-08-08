@@ -62,7 +62,7 @@ class AdvYOLODataset():
             patch_path = os.path.join(patch_path, self.attack_method+'.png').replace('test','patch_train')
             image = cv2.imread(image_path)[:,:,::-1].copy()
             images[i] = torch.tensor(image, dtype=float)
-            if self.attack_method == 'DIM' or self.attack_method == 'EOT' or self.attack_method == 'SIB' or self.attack_method == 'CAMOU':
+            if self.attack_method in ['DIM', 'EOT', 'SIB', 'CAMOU', 'UAP']:
                 patch = cv2.imread(patch_path)[:,:,::-1].copy()
                 patches[i] = torch.tensor(patch, dtype=float)
             elif self.attack_method == 'usap':
@@ -101,7 +101,7 @@ class EADYOLODataset():
 
     def __getitem__(self, index):
         images = torch.zeros((self.batch_size, self.max_steps, 256, 256, 3))
-        patches = torch.ones((self.batch_size, self.max_steps, 256, 256, 3))*(-255)
+        patches = torch.ones((self.batch_size, self.max_steps, 32, 64, 3))*(-255)
         labels = torch.zeros((self.batch_size, self.max_steps, 6))
         rpoints = torch.zeros((self.batch_size, self.max_steps, 4, 2))
         for batch_idx in range(self.batch_size):
@@ -123,7 +123,7 @@ class EADYOLODataset():
                     rpoints[batch_idx, step_idx] = torch.tensor(rpoint, dtype=float)
 
             patch_path = os.path.join(car_path, self.attack_method+'.png').replace('test','patch_train')
-            if self.attack_method == 'EOT' or self.attack_method == 'SIB' or self.attack_method == 'CAMOU':
+            if self.attack_method in ['EOT', 'SIB', 'CAMOU', 'UAP']:
                 patch = cv2.imread(patch_path)[:,:,::-1].copy()
                 patches[batch_idx] = torch.tensor(patch, dtype=float)
             elif self.attack_method == 'usap':

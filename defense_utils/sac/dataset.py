@@ -20,7 +20,7 @@ class CarlaDatasetSAC(Dataset):
         image = torch.tensor(image, dtype=torch.float32)
         if self.attack_method == 'EOT' or self.attack_method == 'SIB':
             patch_path, _ = os.path.split(image_path)
-            patch_path = os.path.join(patch_path, self.attack_method+'.png').replace('train', 'patch_train')
+            patch_path = os.path.join(patch_path, self.attack_method+'.png').replace('test', 'patch_train')
             patch = cv2.imread(patch_path)[:,:,::-1].copy()
             patch = torch.tensor(patch, dtype=torch.float32)
         elif self.attack_method == 'usap':

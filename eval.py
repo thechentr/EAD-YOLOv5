@@ -91,9 +91,9 @@ def evaluation(
             patch = patch*255
             patch = patch.unsqueeze(0)
             patches = patch.repeat(imgs_tensor.shape[0],1,1,1)
-            patches = upsample_patch(patches)
+            patches = upsample_patch(patches).cuda()
             imgs_tensor = apply_patch(imgs_tensor, patches, rotated_points)
-        elif attack_method == 'DIM' or attack_method == 'EOT' or attack_method == 'SIB' or attack_method == 'CAMOU':
+        elif attack_method in ['DIM', 'EOT', 'SIB', 'CAMOU', 'UAP']:
             patches = upsample_patch(patches)
             imgs_tensor = apply_patch(imgs_tensor, patches, rotated_points)
         else:
@@ -111,7 +111,7 @@ def evaluation(
             defense_filter = LocalGradientsSmoothing(window_size=15,overlap=5,smoothing_factor=2.3,threshold=0.1).to('cuda')
         elif defense_method=='sac':
             from defense_utils.sac.patch_detector import PatchDetector
-            defense_filter = PatchDetector(3, 1, base_filter=16, square_sizes=[65, 50, 25], n_patch=1).cuda()
+            defense_filter = PatchDetector(3, 1, base_filter=16, square_sizes=[40, 10, 5], n_patch=1).cuda()
             defense_filter.unet.load_state_dict(torch.load('defense_utils/sac/unet_eot.pth', map_location='cuda'))
             defense_filter.eval()
         elif defense_method=='pz':
@@ -186,6 +186,7 @@ def evaluation(
 
 
 if __name__ == '__main__':
+    modelTool.seed_everything()
     parser = argparse.ArgumentParser()
     parser.add_argument('-am', '--attack_method', type=str, help='attack method')
     parser.add_argument('-dm', '--defense_method', type=str, help='defense method')

@@ -46,8 +46,8 @@ class ConvDecoder(nn.Module):
         self.conv1 = torch.nn.Conv2d(64, 64, kernel_size=[3,3], stride=2, padding=1)
         self.conv2 = torch.nn.Conv2d(64, 64, kernel_size=[3,3], stride=2, padding=1)
         self.conv3 = torch.nn.Conv2d(64, 64, kernel_size=[3,3], stride=2, padding=1)
-        self.mlp = MLP(64*4*7, 64*4*7, output_dim, num_layers=4)
-        self.bn = nn.BatchNorm1d(64*4*7)
+        self.mlp = MLP(64*4*4, 64*4*4, output_dim, num_layers=4)
+        self.bn = nn.BatchNorm1d(64*4*4)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))

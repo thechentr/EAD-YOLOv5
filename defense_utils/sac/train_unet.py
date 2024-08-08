@@ -20,7 +20,7 @@ def main(attack_method):
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.RMSprop(unet.parameters(), lr=1e-3, weight_decay=1e-8, momentum=0.9)
 
-    logger = Logger(name='unet loss')
+    logger = Logger(name='unet loss', path='logs')
     for epoch in range(0,epoch_number):
         for iteration,(images, patches, rpoints) in enumerate(dataloader):
             images = images.cuda()
@@ -29,7 +29,7 @@ def main(attack_method):
 
             patches = upsample_patch(patches)
             
-            if np.random.randint(0,100)<50:
+            if np.random.randint(0,100)<100:
                 images = apply_patch(images, patches, rpoints)
                 
             else:
