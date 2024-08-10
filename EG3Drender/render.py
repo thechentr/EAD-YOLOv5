@@ -1,6 +1,5 @@
 import os
 import sys
-import gin
 import torch
 import numpy as np
 import torchvision.transforms.functional as TF
@@ -50,7 +49,6 @@ def load_eg3d_model(
 
     return G_new
 
-@gin.configurable
 class EG3DRender(object):
     """
     每个car都有angle_num个初始状态，每次reset只在这其中选择
@@ -137,9 +135,9 @@ class EG3DRender(object):
         states: degree
         """
         assert states.shape[0] == len(seeds)
-        states[:, 0] = torch.clamp(states[:, 0], min=self.horizontal_range[0], max=self.horizontal_range[1])  
-        states[:, 1] = torch.clamp(states[:, 1], min=self.vertical_range[0], max=self.vertical_range[1]) 
-
+        states = torch.stack([
+            torch.clamp(states[:, 0], min=self.horizontal_range[0], max=self.horizontal_range[1]),
+            torch.clamp(states[:, 1], min=self.vertical_range[0], max=self.vertical_range[1])], dim=1)
         
         N = len(seeds)
         zs = self._seeds2zs(seeds)

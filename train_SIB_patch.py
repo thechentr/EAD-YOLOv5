@@ -55,9 +55,8 @@ for car_idx in tqdm(range(10000, 13400, 17)):
                 norm = torch.norm(cln_v - adv_v, p=2, dim=1)
                 loss_sib += torch.sum(norm, dim=0) 
             loss = 0.5*loss_obj + 0.5*1/loss_sib
-            logger.add_value(loss.item())
+            # logger.add_value(loss.item())
             # logger.plot()
-            print(loss.item())
 
             patch = PGD_attack_step(patch, loss, learning_rate)
             # with torch.no_grad():

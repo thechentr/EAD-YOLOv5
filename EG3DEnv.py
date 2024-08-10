@@ -64,7 +64,7 @@ class EG3DEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=0, 
             high=255, 
-            shape=(batch_size, max_step + 1, 64, 32, 56), 
+            shape=(batch_size, max_step + 1, 64, 32, 32), 
             dtype=np.float32)
         
         

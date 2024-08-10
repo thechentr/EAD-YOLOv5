@@ -252,4 +252,4 @@ def draw_boxes_on_grid_image(tensors, boxes):
         total_image.paste(image, (col * W, row * H))
 
     # 保存图像
-    total_image.save('test.png')
+    total_image.save('logs/test.png')

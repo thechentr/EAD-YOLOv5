@@ -162,7 +162,7 @@ class BaseModel(nn.Module):
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
             
-            if m.i in [3, 4, 6, 10, 14, 17, 20, 23]:
+            if m.i in [3]:
                 feature_output.append(x)  # (64, 16, 16)
         # if policy_features is not None:
         #     x = policy_features

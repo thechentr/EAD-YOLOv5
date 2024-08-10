@@ -1,6 +1,8 @@
 import torch
 import random
 from torchvision.transforms import functional as F
+import cv2
+import os
 
 def init_patch():
     patch = torch.ones((32, 64, 3)).normal_(0.5,0.1).cuda()
@@ -46,3 +48,21 @@ def apply_patch(image, patch, rotated_points, patch_ratio=1.0):
     if is_time_seq:
         image = image.reshape(B, S, H, W, C)
     return image
+
+class PatchManager(object):
+
+    def __init__(self, method, root_dir):
+        assert method in ['CAMOU', 'EOT', 'SIB', 'UAP', 'noise']
+        self.root_dir = root_dir
+        self.method = method
+
+
+    def load_patch(self, car_seeds):
+        patches = torch.randn((len(car_seeds), 32, 64, 3))
+        if self.method == 'noise':
+            return patches
+        for i, seed in enumerate(car_seeds):
+            patch_path = os.path.join(self.root_dir, str(seed), f'{self.method}.png')
+            patch = cv2.imread(patch_path)[:,:,::-1].copy()
+            patches[i] = torch.tensor(patch, dtype=torch.float32)
+        return patches
