@@ -58,11 +58,11 @@ class PatchManager(object):
 
 
     def load_patch(self, car_seeds):
-        patches = torch.randn((len(car_seeds), 32, 64, 3))
+        patches = torch.rand((len(car_seeds), 32, 64, 3))
         if self.method == 'noise':
             return patches
         for i, seed in enumerate(car_seeds):
             patch_path = os.path.join(self.root_dir, str(seed), f'{self.method}.png')
             patch = cv2.imread(patch_path)[:,:,::-1].copy()
-            patches[i] = torch.tensor(patch, dtype=torch.float32)
+            patches[i] = torch.tensor(patch, dtype=torch.float32) / 255
         return patches

@@ -26,7 +26,7 @@ class PPO:
         self.compute_loss = ComputeLoss(self.sensory)
 
         self.ead = modelTool.get_ead_model(max_steps=4)
-        self.ead.load_state_dict(torch.load('checkpoints/ead_offlinecp.pt'), strict=False)
+        self.ead.load_state_dict(torch.load('checkpoints/ead_offline_paper.pt'), strict=False)
         self.ead.eval()
         print(self.ead.action_scaling)
         
@@ -59,11 +59,13 @@ class PPO:
     def get_actions(self, obs, targets):
         obs = torch.tensor(obs).cuda()
         targets = torch.tensor(targets).cuda()
-        refined_feats = self.ead(obs)
-        mean = self.ead.get_action(refined_feats)
-        _, train_out = self.sensory.ead_stage_2(refined_feats)
+
         print(obs.shape)
         print(targets)
+        refined_feats = self.ead(obs)
+        mean = self.ead.get_action(refined_feats)
+        _, train_out = self.sensory.ead_stage_2(obs[:, -1], refined_feats)
+        
         loss, _ = self.compute_loss(train_out, targets[:,-1,:], loss_items=['box', 'obj'])  # loss scaled by batch_size
 
         dist = MultivariateNormal(mean,self.cov_mat)   

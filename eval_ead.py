@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from patch import init_usap_patch, apply_patch, upsample_patch
 from pathlib import Path
 from embodiment.transformer import Transformer
+from tqdm import tqdm
 
 def process_batch(detections, labels, iouv):
     """
@@ -44,15 +45,10 @@ def evaluation(
     batch_size=20,  # batch size
     conf_thres=0.25,  # confidence threshold
     iou_thres=0.6,  # NMS IoU threshold
-    max_det=300,  # maximum detections per image
     device="",  # cuda device, i.e. 0 or 0,1,2,3 or cpu
-    single_cls=False,  # treat as single-class dataset
-    save_hybrid=False,  # save label+prediction hybrid results to *.txt
     model=None,
     policy=None,
     max_steps=None,
-    save_dir=Path(""),
-    plots=False,
     attack_method=False,
 ):
     dataset = EADYOLODataset(split='test', batch_size=batch_size, max_steps=max_steps, attack_method=attack_method)
@@ -62,23 +58,16 @@ def evaluation(
     green = lambda x: f'\033[0;32m{x}\033[0m' 
     print(green(f'\nstart test:\t attack method-{attack_method}'))
 
+    model.eval()
     model.float()
+
 
     device = next(model.parameters()).device  # get model device, PyTorch model
 
-    # Configure
-    model.eval()
-    nc = 1  # number of classes
-    iouv = torch.linspace(0.5, 0.95, 10, device=device)  # iou vector for mAP@0.5:0.95
-    niou = iouv.numel()
-    
-    seen = 0
-    confusion_matrix = ConfusionMatrix(nc=nc)
-    names = model.names if hasattr(model, "names") else model.module.names  # get class names
-    p, r, mp, mr, map50, ap50, map = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-    stats, ap = [], []
 
-    from tqdm import tqdm
+
+    preds_list= []
+    targets_list =[]
     for i, (imgs_tensor, patches, targets, rotated_points) in tqdm(enumerate(dataloader)):
         imgs_tensor = imgs_tensor.cuda()
         patches = patches.cuda()
@@ -90,22 +79,50 @@ def evaluation(
         
         feats = model.ead_stage_1(imgs_tensor)
         refined_feats = policy(feats)
-        preds = model.ead_stage_2(refined_feats)
-        imgs_tensor = imgs_tensor[:,-1].permute(0,3,1,2)/255
+        preds = model.ead_stage_2(imgs_tensor[:, -1], refined_feats)
+        
+        # imgs_tensor = imgs_tensor[:,-1].permute(0,3,1,2)/255
         # preds = model(imgs_tensor)
-        post_process_pred(preds, imgs_tensor[0:1])
+        # post_process_pred(preds, imgs_tensor[0:1])
 
-        shapes = [[[imgs_tensor[i].shape[1], imgs_tensor[i].shape[2]], [[1.0, 1.0], [0.0, 0.0]]] for i in range(imgs_tensor.shape[0])]
+        preds_list.append(preds)
+        targets_list.append(targets)
+
+    return calculate_merit(targets_list, preds_list, [batch_size, 3, 256, 256], conf_thres,iou_thres, device)
+        
+
+
+def calculate_merit(targets_list, 
+                    preds_list,
+                    batch_shape,
+                    conf_thres=0.25, 
+                    iou_thres=0.6,
+                    device=torch.device('cuda')):
+    imgs_tensor = torch.rand(batch_shape)
+
+    # Configure
+    nc = 1  # number of classes
+    iouv = torch.linspace(0.5, 0.95, 10, device=device)  # iou vector for mAP@0.5:0.95
+    niou = iouv.numel()
+        
+    seen = 0
+    names = {0: 'car'}
+    p, r, mp, mr, map50, ap50, map = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+    stats, ap = [], []
+        
+    for preds, targets in zip(preds_list, targets_list):
+        
 
         nb, _, height, width = imgs_tensor.shape  # batch size, channels, height, width
+
+        shapes = [[[height, width], [[1.0, 1.0], [0.0, 0.0]]] for i in range(nb)]
 
 
         # NMS
         targets[:, 2:] *= torch.tensor((width, height, width, height), device=device)  # to pixels
-        lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
 
         preds = non_max_suppression(
-            preds, conf_thres, iou_thres, labels=lb, multi_label=True, agnostic=single_cls, max_det=max_det
+            preds, conf_thres=conf_thres, iou_thres=iou_thres, labels=[], multi_label=False, agnostic=True, max_det=300
         )
 
         # Metrics
@@ -120,8 +137,6 @@ def evaluation(
             if npr == 0:
                 if nl:
                     stats.append((correct, *torch.zeros((2, 0), device=device), labels[:, 0]))
-                    if plots:
-                        confusion_matrix.process_batch(detections=None, labels=labels[:, 0])
                 continue
 
             # Predictions
@@ -134,15 +149,13 @@ def evaluation(
                 scale_boxes(imgs_tensor[si].shape[1:], tbox, shape, shapes[si][1])  # native-space labels
                 labelsn = torch.cat((labels[:, 0:1], tbox), 1)  # native-space labels
                 correct = process_batch(predn, labelsn, iouv)
-                if plots:
-                    confusion_matrix.process_batch(predn, labelsn)
             stats.append((correct, pred[:, 4], pred[:, 5], labels[:, 0]))  # (correct, conf, pcls, tcls)
 
 
     # Compute metrics
     stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
     if len(stats) and stats[0].any():
-        tp, fp, p, r, f1, ap, ap_class = ap_per_class(*stats, plot=plots, save_dir=save_dir, names=names)
+        tp, fp, p, r, f1, ap, ap_class = ap_per_class(*stats, plot=False, save_dir=Path(""), names=names)
         ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
         mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
     nt = np.bincount(stats[3].astype(int), minlength=nc)  # number of targets per class
@@ -165,7 +178,7 @@ if __name__ == '__main__':
 
     max_steps = 4
     policy = modelTool.get_ead_model(max_steps=max_steps)
-    policy.load_state_dict(torch.load('checkpoints/ead_offline.pt'))
+    policy.load_state_dict(torch.load('checkpoints/ead_online_paper.pt'))
 
     _, _, _, _, mAP = evaluation(batch_size=batch_size, model=model, policy=policy, max_steps=4, attack_method=args.attack_method)
     

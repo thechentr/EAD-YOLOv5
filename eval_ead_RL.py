@@ -356,7 +356,6 @@ class EADEvalSynchronousClient(object):
             surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
             display.blit(surface, (0, 0))
 
-
     def set_camera_relative_position(self, azim, elev, dist):
         """
         根据方位角、仰角和距离设置相机相对于其父对象的位置。
@@ -487,7 +486,7 @@ class EADEvalSynchronousClient(object):
 
                     collect_data[:, step, :,:,:] = image.unsqueeze(0).cuda()
 
-                    feature = self.model.ead_stage_1(collect_data[:,0:step+1]) # [B, F]
+                    feature = self.model.ead_stage_1(collect_data[:,0:step+1]) # [B, F]  TODO
                     refined_feats = self.ead(feature)
                     action = self.ead.get_action(refined_feats)
                     

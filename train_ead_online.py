@@ -7,10 +7,58 @@ from utils.loss import ComputeLoss
 from eval_ead import evaluation
 from patch import apply_patch, upsample_patch, PatchManager
 from utils.post_process import post_process_pred
+from utils.visualize import draw_boxes_on_grid_image
 import cv2
 from EG3Drender.render import EG3DRender
 import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
+import random
+from tqdm import tqdm 
+
+def seed_loader(seed_list, batch_size=4):  
+    seed_list = list(seed_list)  
+    random.shuffle(seed_list)  
+    for i in range(0, len(seed_list), batch_size):  
+        batch = seed_list[i:i + batch_size]  
+        if len(batch) == batch_size:  
+            yield batch  
+
+def opoints(img):
+    return [[0, 0], 
+            [0, img.shape[1]], 
+            [img.shape[2], img.shape[1]], 
+            [img.shape[1], 0]]
+
+@torch.no_grad
+def _annotate(imgs_tensor):
+    """
+    imgs_tensor:[bs, w, h, c] (0, 255)
+    """
+    label = []
+    for i in range(imgs_tensor.shape[0]):
+        box = [0, *_calculate_box(imgs_tensor[i])]
+        if box[-1] + box[-2] < 1.8:  # 过滤掉没有物体的box
+            label.append([i, *box])
+    label = torch.tensor(label, dtype=torch.float32)
+
+    return label
+
+@torch.no_grad
+def _calculate_box(img_tensor):
+    gray = torch.sum(img_tensor, dim=2)/3
+    def get_dim_len(dim):
+        minn = 0
+        maxx = 255
+        gray_dim = torch.sum(gray, dim=dim)/256
+        for i in range(0, 256):
+            if gray_dim[i] <= 0.995 and minn == 0:
+                minn = i
+            if gray_dim[255-i] <= 0.995 and maxx == 255:
+                maxx = 255-i
+        return (maxx+minn)/2, maxx-minn
+    x, width = get_dim_len(0)
+    y, height = get_dim_len(1)
+    return x/256, y/256, width/256, height/256
 
 def main(epoch_number, batch_size):
     device = torch.device('cuda:0')
@@ -20,8 +68,10 @@ def main(epoch_number, batch_size):
     modelTool.transfer_paramaters(pretrain_weights='checkpoints/yolov5_2000.pt', detModel=model)
 
     max_steps = 4
-    ead = modelTool.get_ead_model(max_steps=max_steps)
-    ead.load_state_dict(torch.load('checkpoints/ead_offline.pt'), strict=False)
+    ead = modelTool.get_ead_model(max_steps=max_steps).to(device)
+    ead.load_state_dict(torch.load('checkpoints/ead_offline_paper.pt'), strict=False)
+    ead.load_state_dict(torch.load('checkpoints/ead_online_paper.pt'), strict=False)
+    
 
     
     render = EG3DRender(device=device)
@@ -32,20 +82,24 @@ def main(epoch_number, batch_size):
     loss_logger = Logger(name='EAD YOLO Loss', path='logs')
     mAP_logger = Logger(name='EAD YOLO mAP', path='logs')
 
-    import random
-    def seed_loader(batch_size=4):
-        seed_list = list(range(70000, 83600, 17))
-        random.shuffle(seed_list)
-        for i in range(0, len(seed_list), batch_size):
-            yield seed_list[i:i + batch_size]
-    pm = PatchManager('noise', 'dataset/patch_train')
-    from tqdm import tqdm 
-    for epoch in range(epoch_number):
-        for seeds in seed_loader(batch_size):
+    # ============================================= eval ==================================================
+    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device)
+    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='noise')
+    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='SIB')
+    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='UAP')
+    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='CAMOU')
+    exit()
+    # ============================================= eval ==================================================
 
-            patch_tensor = upsample_patch(pm.load_patch(seeds))
-            imgs_seq_tensor = torch.empty(batch_size, max_steps, 3, 256, 256)
-            features_seq_tensor = torch.empty(batch_size, max_steps, 64, 32, 32)
+    pm = PatchManager('noise', 'dataset/patch_train')
+    for epoch in range(epoch_number):
+        seeds_list = list(range(70000, 83600, 17))
+        add_patch = (torch.rand(batch_size) < 0.4).tolist()
+        for seeds in tqdm(seed_loader(seeds_list, batch_size), total=len(seeds_list)//4):
+
+            patch_tensor = upsample_patch(pm.load_patch(seeds)).to(device).permute(0, 3, 1, 2)
+            imgs_seq_tensor = torch.empty(batch_size, max_steps, 3, 256, 256, device=device)
+            features_seq_tensor = torch.empty(batch_size, max_steps, 256, 8, 8, device=device)
 
         
             for step in range(max_steps//2):
@@ -54,43 +108,49 @@ def main(epoch_number, batch_size):
                     init_state = torch.zeros((batch_size, 2), dtype=torch.float32, requires_grad=True, device=device)
                     imgs_tensor, rpoints = render.reset(seeds, init_state)
                 else:
-                    imgs_tensor, rpoints = render.step(seeds, action)
+                    imgs_tensor, rpoints = render.step(action)
+                
+                for i in range(imgs_tensor.shape[0]):
+                    if add_patch[i]:
+                        patch = TF.perspective(patch_tensor[i], opoints(patch_tensor[i]), rpoints[i], interpolation=transforms.InterpolationMode.NEAREST, fill=-1)
+                        imgs_tensor[i] = torch.where(patch.mean(0) == -1, imgs_tensor[i], patch)
 
                 imgs_tensor = imgs_tensor.permute(0, 2, 3, 1) * 255
-                for i in range(imgs_tensor.shape[0]):
-                    patch = TF.perspective(patch_tensor[i], rpoints(patch_tensor[i]), rpoints[i], interpolation=transforms.InterpolationMode.NEAREST, fill=-1)
-                    imgs_tensor[i] = torch.where(patch.mean(0) == -1, imgs_tensor[i], patch)
 
-                
-                feats = model.ead_stage_1(imgs_tensor)
-                features_seq_tensor[:, step*2] = feats
+
+                feats = model.ead_stage_1(imgs_tensor.unsqueeze(1))
+                features_seq_tensor[:, step*2] = feats.squeeze(1)
                 
                 refined_feats = ead(features_seq_tensor[:, :step*2+1])
-                preds, train_out = model.ead_stage_2(refined_feats)  # HACK
+                preds, train_out = model.ead_stage_2(imgs_tensor, refined_feats)
                 action = ead.get_action(refined_feats)
 
-                with torch.no_grad():
-                    iimg = imgs_tensor[0:4, -1, :].squeeze(1).permute(0, 3, 1, 2) * 255
-                    post_process_pred(preds, iimg, conf_thres=0.5)
+                # with torch.no_grad():
+                #     post_process_pred(preds, imgs_tensor.permute(0, 3, 1, 2)/255, conf_thres=0.5)
 
-                imgs_tensor, rpoints = render.step(seeds, action)
-                imgs_tensor = imgs_tensor.permute(0, 2, 3, 1) * 255
-                targets = _annotate(imgs_tensor).to(device)
+                imgs_tensor, rpoints = render.step(action)
+                targets = _annotate(imgs_tensor.permute(0, 2, 3, 1)).to(device)
 
 
                 for i in range(imgs_tensor.shape[0]):
-                    patch = TF.perspective(patch_tensor[i], rpoints(patch_tensor[i]), rpoints[i], interpolation=transforms.InterpolationMode.NEAREST, fill=-1)
-                    imgs_tensor[i] = torch.where(patch.mean(0) == -1, imgs_tensor[i], patch)
+                    if add_patch[i]:
+                        patch = TF.perspective(patch_tensor[i], opoints(patch_tensor[i]), rpoints[i], interpolation=transforms.InterpolationMode.NEAREST, fill=-1)
+                        imgs_tensor[i] = torch.where(patch.mean(0) == -1, imgs_tensor[i], patch)
 
-                feats = model.ead_stage_1(imgs_tensor)
-                features_seq_tensor[:, step*2+1] = feats                
+                imgs_tensor = imgs_tensor.permute(0, 2, 3, 1) * 255
+
+                feats = model.ead_stage_1(imgs_tensor.unsqueeze(1))
+                features_seq_tensor[:, step*2+1] = feats.squeeze(1)
 
                 refined_feats = ead(features_seq_tensor[:, :step*2+2])
-                preds, train_out = model.ead_stage_2(refined_feats)
+                preds, train_out = model.ead_stage_2(imgs_tensor, refined_feats)
                 action = ead.get_action(refined_feats)
 
+                # with torch.no_grad():
+                #     post_process_pred(preds, imgs_tensor.permute(0, 3, 1, 2)/255, conf_thres=0.5)
+                
 
-                loss, loss_items = compute_loss(train_out, targets[:,-1,:], loss_items=['box', 'obj'])  # loss scaled by batch_size
+                loss, loss_items = compute_loss(train_out, targets, loss_items=['box', 'obj'])  # loss scaled by batch_size
                 loss_logger.add_value(loss.item())
                 loss_logger.plot()
 
@@ -98,45 +158,81 @@ def main(epoch_number, batch_size):
                 loss.backward()
                 optimizer.step()
 
-                with torch.no_grad():
-                    iimg = imgs_tensor[0:4, -1, :].squeeze(1).permute(0, 3, 1, 2) * 255
-                    post_process_pred(preds, iimg, conf_thres=0.5)
+                features_seq_tensor = features_seq_tensor.detach().clone()
 
                 
-                with torch.no_grad():
-                    _, _, _, _, mAP = evaluation(batch_size=40, model=model, policy=ead, max_steps=4, attack_method='clean')
-                    mAP_logger.add_value(mAP)
-                    mAP_logger.plot()
-                    torch.save(ead.state_dict(), 'checkpoints/ead_offline.pt')
+        with torch.no_grad():
+            _, _, _, _, mAP = eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device)
+            mAP_logger.add_value(mAP)
+            mAP_logger.plot()
+            torch.save(ead.state_dict(), 'checkpoints/ead_online_paper.pt')
 
-    @torch.no_grad
-    def _annotate(imgs_tensor):
-        label = []
-        for i in range(imgs_tensor.shape[0]):
-            box = [0, *_calculate_box(imgs_tensor[i].permute(1,2,0))]
-            if box[-1] + box[-2] < 1.8:  # 过滤掉没有物体的box
-                label.append([i, *box])
-        label = torch.tensor(label, dtype=torch.float32)
+from eval_ead import calculate_merit
 
-        return label
+@torch.no_grad()
+def eval_online(batch_size=20,  # batch size
+                conf_thres=0.25,  # confidence threshold
+                iou_thres=0.6,  # NMS IoU threshold
+                device=torch.device('cuda'),  # cuda device, i.e. 0 or 0,1,2,3 or cpu
+                model=None,
+                policy=None,
+                max_steps=None,
+                attack_method='clean',):
+    
+    green = lambda x: f'\033[0;32m{x}\033[0m' 
+    print(green(f'\nstart test:\t attack method-{attack_method}'))
+    
+    pm = PatchManager(attack_method, 'dataset/patch_train') if attack_method != 'clean' else None
+    render = EG3DRender(device=device)
 
-    @torch.no_grad
-    def _calculate_box(img_tensor):
-        gray = torch.sum(img_tensor, dim=2)/3
-        def get_dim_len(dim):
-            minn = 0
-            maxx = 255
-            gray_dim = torch.sum(gray, dim=dim)/256
-            for i in range(0, 256):
-                if gray_dim[i] <= 0.995 and minn == 0:
-                    minn = i
-                if gray_dim[255-i] <= 0.995 and maxx == 255:
-                    maxx = 255-i
-            return (maxx+minn)/2, maxx-minn
-        x, width = get_dim_len(0)
-        y, height = get_dim_len(1)
-        return x/256, y/256, width/256, height/256
+    preds_list= []
+    targets_list =[]
+    seeds_list = list(range(10000, 13400, 17))
+    for seeds in seed_loader(seeds_list, batch_size):
 
+        patch_tensor = upsample_patch(pm.load_patch(seeds)).to(device).permute(0, 3, 1, 2) if attack_method != 'clean' else None
+        imgs_seq_tensor = torch.empty(batch_size, max_steps, 3, 256, 256, device=device)
+        features_seq_tensor = torch.empty(batch_size, max_steps, 256, 8, 8, device=device)
+
+    
+        for step in range(max_steps):
+
+            if step == 0:
+                init_state = torch.zeros((batch_size, 2), dtype=torch.float32, requires_grad=True, device=device)
+                imgs_tensor, rpoints = render.reset(seeds, init_state)
+            else:
+                imgs_tensor, rpoints = render.step(action)
+
+            targets = _annotate(imgs_tensor.permute(0, 2, 3, 1)).to(device)
+            
+            if attack_method != 'clean':
+                for i in range(imgs_tensor.shape[0]):
+                    patch = TF.perspective(patch_tensor[i], opoints(patch_tensor[i]), rpoints[i], interpolation=transforms.InterpolationMode.NEAREST, fill=-1)
+                    imgs_tensor[i] = torch.where(patch.mean(0) == -1, imgs_tensor[i], patch)
+
+            imgs_tensor = imgs_tensor.permute(0, 2, 3, 1) * 255
+
+
+            feats = model.ead_stage_1(imgs_tensor.unsqueeze(1))
+            features_seq_tensor[:, step] = feats.squeeze(1)
+            
+            refined_feats = policy(features_seq_tensor[:, :step*2+1])
+            preds, train_out = model.ead_stage_2(imgs_tensor, refined_feats)
+            action = policy.get_action(refined_feats)
+            action = torch.tensor([15., 60.], device=device) * torch.randn_like(action)
+
+            # print(action.shape)
+            # input(action)
+            
+
+            with torch.no_grad():
+                post_process_pred(preds[:1], imgs_tensor[:1].permute(0, 3, 1, 2)/255, conf_thres=0.5)
+
+        preds_list.append(preds)
+        targets_list.append(targets)
+
+
+    return calculate_merit(targets_list, preds_list, [batch_size, 3, 256, 256], conf_thres,iou_thres, device)
 
     
     

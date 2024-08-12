@@ -9,14 +9,14 @@ import torch
 import torch.nn as nn
 
 def get_ead_model(max_steps):
-    C,H,W = 64, 32, 32
+    C,H,W = 256, 8, 8
     ead = Transformer(num_layers=2,
                         num_heads=8,
-                        num_blocks=(max_steps*C),
+                        num_blocks=(max_steps*H*W),
                         residual_pdrop=0.1,
                         attention_pdrop=0.1,
                         embedding_pdrop=0.1,
-                        embedding_dim=H*W,
+                        embedding_dim=C,
                         vertical_scale=15,
                         horizontal_scale=60,
                         action_dim=2).cuda()

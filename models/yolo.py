@@ -118,28 +118,30 @@ class BaseModel(nn.Module):
 
         for m in self.model: 
             x = m(x)  # run
-            if m.i ==3:
+            if m.i == 8:
                 return x.reshape(B,S,x.shape[1],x.shape[2],x.shape[3])
             
-    def ead_stage_2(self,x):
-        y= []
+    def ead_stage_2(self, x, features):
+        x = x.permute(0, 3, 1, 2)/255
+        y, dt = [], []  # outputs
         for m in self.model: 
-            if m.i <= 3:
-                y.append(None)
-                continue
-            if m.f != -1:  # if not from previous layer
+            if m.i == 8:  # replace x with refined features
+                x = features
+
+            if m.f != -1:
                 if isinstance(m.f, int):
                     x = y[m.f]
                 else:
-                    x = [x if j == -1 else y[j] for j in m.f]  # from earlier layers
-            x = m(x)  # run
-            y.append(x if m.i in self.save else None)  # save output
+                    x = [x if j == -1 else y[j] for j in m.f]
+
+            x = m(x)
+            y.append(x if m.i in self.save else None)
+
         return x
 
     def _forward_once(self, x, profile=False, visualize=False, policy_features=None):
         y, dt = [], []  # outputs
         feature_output = []
-        # print("self.save", self.save)
         for m in self.model: 
             if m.f != -1:  # if not from previous layer
                 if isinstance(m.f, int):
@@ -150,12 +152,6 @@ class BaseModel(nn.Module):
             if profile:
                 self._profile_one_layer(m, x, dt)
 
-            # if isinstance(x, list):
-            #     for x_i in x:
-            #          print(m.f, x_i.shape)
-            # else:
-            #     print(m.f, x.shape)
-            # print(m.i, m)
             x = m(x)  # run
             y.append(x if m.i in self.save else None)  # save output
 
@@ -164,10 +160,7 @@ class BaseModel(nn.Module):
             
             if m.i in [3]:
                 feature_output.append(x)  # (64, 16, 16)
-        # if policy_features is not None:
-        #     x = policy_features
 
-        # return x ####xlw
         return x, feature_output
 
     def _profile_one_layer(self, m, x, dt):

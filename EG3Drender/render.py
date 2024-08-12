@@ -135,10 +135,11 @@ class EG3DRender(object):
         states: degree
         """
         assert states.shape[0] == len(seeds)
+        # print(states)
         states = torch.stack([
-            torch.clamp(states[:, 0], min=self.horizontal_range[0], max=self.horizontal_range[1]),
-            torch.clamp(states[:, 1], min=self.vertical_range[0], max=self.vertical_range[1])], dim=1)
-        
+            torch.clamp(states[:, 1], min=self.horizontal_range[0], max=self.horizontal_range[1]),
+            torch.clamp(states[:, 0], min=self.vertical_range[0], max=self.vertical_range[1])], dim=1)
+        # print(states)
         N = len(seeds)
         zs = self._seeds2zs(seeds)
         ws = self._zs2ws(zs)
