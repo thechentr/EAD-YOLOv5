@@ -4,7 +4,7 @@ from dataset_yolo import EADYOLODataset, yolo_collate_fn
 from torch.utils.data import DataLoader
 from logger import Logger
 from utils.loss import ComputeLoss
-from eval_ead import evaluation
+from eval_ead_online import eval_online
 from patch import apply_patch, upsample_patch, PatchManager
 from utils.post_process import post_process_pred
 from utils.visualize import draw_boxes_on_grid_image
@@ -14,6 +14,7 @@ import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
 import random
 from tqdm import tqdm 
+
 
 def seed_loader(seed_list, batch_size=4):  
     seed_list = list(seed_list)  
@@ -82,14 +83,12 @@ def main(epoch_number, batch_size):
     loss_logger = Logger(name='EAD YOLO Loss', path='logs')
     mAP_logger = Logger(name='EAD YOLO mAP', path='logs')
 
-    # ============================================= eval ==================================================
     eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device)
-    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='noise')
-    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='SIB')
-    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='UAP')
-    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='CAMOU')
-    exit()
-    # ============================================= eval ==================================================
+    # eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='noise')
+    # eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='SIB')
+    # eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='UAP')
+    # eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='CAMOU')
+
 
     pm = PatchManager('noise', 'dataset/patch_train')
     for epoch in range(epoch_number):
@@ -166,75 +165,6 @@ def main(epoch_number, batch_size):
             mAP_logger.add_value(mAP)
             mAP_logger.plot()
             torch.save(ead.state_dict(), 'checkpoints/ead_online_paper.pt')
-
-from eval_ead import calculate_merit
-
-@torch.no_grad()
-def eval_online(batch_size=20,  # batch size
-                conf_thres=0.25,  # confidence threshold
-                iou_thres=0.6,  # NMS IoU threshold
-                device=torch.device('cuda'),  # cuda device, i.e. 0 or 0,1,2,3 or cpu
-                model=None,
-                policy=None,
-                max_steps=None,
-                attack_method='clean',):
-    
-    green = lambda x: f'\033[0;32m{x}\033[0m' 
-    print(green(f'\nstart test:\t attack method-{attack_method}'))
-    
-    pm = PatchManager(attack_method, 'dataset/patch_train') if attack_method != 'clean' else None
-    render = EG3DRender(device=device)
-
-    preds_list= []
-    targets_list =[]
-    seeds_list = list(range(10000, 13400, 17))
-    for seeds in seed_loader(seeds_list, batch_size):
-
-        patch_tensor = upsample_patch(pm.load_patch(seeds)).to(device).permute(0, 3, 1, 2) if attack_method != 'clean' else None
-        imgs_seq_tensor = torch.empty(batch_size, max_steps, 3, 256, 256, device=device)
-        features_seq_tensor = torch.empty(batch_size, max_steps, 256, 8, 8, device=device)
-
-    
-        for step in range(max_steps):
-
-            if step == 0:
-                init_state = torch.zeros((batch_size, 2), dtype=torch.float32, requires_grad=True, device=device)
-                imgs_tensor, rpoints = render.reset(seeds, init_state)
-            else:
-                imgs_tensor, rpoints = render.step(action)
-
-            targets = _annotate(imgs_tensor.permute(0, 2, 3, 1)).to(device)
-            
-            if attack_method != 'clean':
-                for i in range(imgs_tensor.shape[0]):
-                    patch = TF.perspective(patch_tensor[i], opoints(patch_tensor[i]), rpoints[i], interpolation=transforms.InterpolationMode.NEAREST, fill=-1)
-                    imgs_tensor[i] = torch.where(patch.mean(0) == -1, imgs_tensor[i], patch)
-
-            imgs_tensor = imgs_tensor.permute(0, 2, 3, 1) * 255
-
-
-            feats = model.ead_stage_1(imgs_tensor.unsqueeze(1))
-            features_seq_tensor[:, step] = feats.squeeze(1)
-            
-            refined_feats = policy(features_seq_tensor[:, :step*2+1])
-            preds, train_out = model.ead_stage_2(imgs_tensor, refined_feats)
-            action = policy.get_action(refined_feats)
-            action = torch.tensor([15., 60.], device=device) * torch.randn_like(action)
-
-            # print(action.shape)
-            # input(action)
-            
-
-            with torch.no_grad():
-                post_process_pred(preds[:1], imgs_tensor[:1].permute(0, 3, 1, 2)/255, conf_thres=0.5)
-
-        preds_list.append(preds)
-        targets_list.append(targets)
-
-
-    return calculate_merit(targets_list, preds_list, [batch_size, 3, 256, 256], conf_thres,iou_thres, device)
-
-    
     
 
 if __name__ == '__main__':
