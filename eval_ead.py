@@ -79,11 +79,11 @@ def evaluation(
         
         feats = model.ead_stage_1(imgs_tensor)
         refined_feats = policy(feats)
-        preds = model.ead_stage_2(imgs_tensor[:, -1], refined_feats)
+        preds = model.ead_stage_2(refined_feats)
         
-        # imgs_tensor = imgs_tensor[:,-1].permute(0,3,1,2)/255
+        imgs_tensor = imgs_tensor[:,-1].permute(0,3,1,2)/255
         # preds = model(imgs_tensor)
-        # post_process_pred(preds, imgs_tensor[0:1])
+        post_process_pred(preds, imgs_tensor[0:4])
 
         preds_list.append(preds)
         targets_list.append(targets)
@@ -178,7 +178,7 @@ if __name__ == '__main__':
 
     max_steps = 4
     policy = modelTool.get_ead_model(max_steps=max_steps)
-    policy.load_state_dict(torch.load('checkpoints/ead_online_paper.pt'))
+    policy.load_state_dict(torch.load('checkpoints/ead_online_RL.pt'))
 
     _, _, _, _, mAP = evaluation(batch_size=batch_size, model=model, policy=policy, max_steps=4, attack_method=args.attack_method)
     

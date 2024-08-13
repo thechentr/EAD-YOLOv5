@@ -118,25 +118,22 @@ class BaseModel(nn.Module):
 
         for m in self.model: 
             x = m(x)  # run
-            if m.i == 8:
+            if m.i == 3:
                 return x.reshape(B,S,x.shape[1],x.shape[2],x.shape[3])
             
-    def ead_stage_2(self, x, features):
-        x = x.permute(0, 3, 1, 2)/255
-        y, dt = [], []  # outputs
+    def ead_stage_2(self,x):
+        y= []
         for m in self.model: 
-            if m.i == 8:  # replace x with refined features
-                x = features
-
-            if m.f != -1:
+            if m.i <= 3:
+                y.append(None)
+                continue
+            if m.f != -1:  # if not from previous layer
                 if isinstance(m.f, int):
                     x = y[m.f]
                 else:
-                    x = [x if j == -1 else y[j] for j in m.f]
-
-            x = m(x)
-            y.append(x if m.i in self.save else None)
-
+                    x = [x if j == -1 else y[j] for j in m.f]  # from earlier layers
+            x = m(x)  # run
+            y.append(x if m.i in self.save else None)  # save output
         return x
 
     def _forward_once(self, x, profile=False, visualize=False, policy_features=None):

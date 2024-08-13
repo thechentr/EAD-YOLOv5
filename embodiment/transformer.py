@@ -41,13 +41,13 @@ class MLP(nn.Module):
         return x
 
 class ConvDecoder(nn.Module):
-    def __init__(self, input_dim, output_dim):
+    def __init__(self, output_dim):
         super().__init__()
-        self.conv1 = torch.nn.Conv2d(input_dim, 64, kernel_size=[3,3], stride=2, padding=1)
+        self.conv1 = torch.nn.Conv2d(64, 64, kernel_size=[3,3], stride=2, padding=1)
         self.conv2 = torch.nn.Conv2d(64, 64, kernel_size=[3,3], stride=2, padding=1)
         self.conv3 = torch.nn.Conv2d(64, 64, kernel_size=[3,3], stride=2, padding=1)
-        self.mlp = MLP(64*1*1, 64*1*1, output_dim, num_layers=4)
-        self.bn = nn.BatchNorm1d(64*1*1)
+        self.mlp = MLP(64*4*4, 64*4*4, output_dim, num_layers=4)
+        self.bn = nn.BatchNorm1d(64*4*4)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -81,8 +81,8 @@ class Transformer(nn.Module):
             embedding_dim=embedding_dim, output_dim=embedding_dim,
         )
 
-        self.action_decoder = ConvDecoder(input_dim=256, output_dim=2)
-        self.value_decoder = ConvDecoder(input_dim=256, output_dim=1)
+        self.action_decoder = ConvDecoder(output_dim=2)
+        self.value_decoder = ConvDecoder(output_dim=1)
         
 
             
@@ -91,10 +91,10 @@ class Transformer(nn.Module):
 
     def forward(self, feats):
         B, S, C, H, W = feats.shape
-        feats = feats.reshape(B,S,C,H*W).permute(0, 1, 3, 2).reshape(B, S*H*W, C)
+        feats = feats.reshape(B,S*C,H*W)
 
         refined_feats = self.model(feats)
-        refined_feats = refined_feats.reshape(B, S, H*W, C).permute(0, 1, 3, 2).reshape(B, S, C, H, W)
+        refined_feats = refined_feats.reshape(B,S,C,H,W)
 
         refined_feats = refined_feats[:,-1,:,:,:]
 

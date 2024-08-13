@@ -70,20 +70,20 @@ def main(epoch_number, batch_size):
 
     max_steps = 4
     ead = modelTool.get_ead_model(max_steps=max_steps).to(device)
-    ead.load_state_dict(torch.load('checkpoints/ead_offline_paper.pt'), strict=False)
-    ead.load_state_dict(torch.load('checkpoints/ead_online_paper.pt'), strict=False)
+    ead.load_state_dict(torch.load('checkpoints/ead_offline.pt'), strict=False)
+    # ead.load_state_dict(torch.load('checkpoints/ead_online.pt'), strict=False)
     
 
     
     render = EG3DRender(device=device)
 
-    optimizer = modelTool.get_optimizer(ead, lr=0.0001)
+    optimizer = modelTool.get_optimizer(ead, lr=0.00001)
     compute_loss = ComputeLoss(model)  # init loss class
 
     loss_logger = Logger(name='EAD YOLO Loss', path='logs')
     mAP_logger = Logger(name='EAD YOLO mAP', path='logs')
 
-    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device)
+    # eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device)
     # eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='noise')
     # eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='SIB')
     # eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='UAP')
@@ -98,7 +98,7 @@ def main(epoch_number, batch_size):
 
             patch_tensor = upsample_patch(pm.load_patch(seeds)).to(device).permute(0, 3, 1, 2)
             imgs_seq_tensor = torch.empty(batch_size, max_steps, 3, 256, 256, device=device)
-            features_seq_tensor = torch.empty(batch_size, max_steps, 256, 8, 8, device=device)
+            features_seq_tensor = torch.empty(batch_size, max_steps, 64, 32, 32, device=device)
 
         
             for step in range(max_steps//2):
@@ -121,7 +121,7 @@ def main(epoch_number, batch_size):
                 features_seq_tensor[:, step*2] = feats.squeeze(1)
                 
                 refined_feats = ead(features_seq_tensor[:, :step*2+1])
-                preds, train_out = model.ead_stage_2(imgs_tensor, refined_feats)
+                preds, train_out = model.ead_stage_2(refined_feats)
                 action = ead.get_action(refined_feats)
 
                 # with torch.no_grad():
@@ -142,7 +142,7 @@ def main(epoch_number, batch_size):
                 features_seq_tensor[:, step*2+1] = feats.squeeze(1)
 
                 refined_feats = ead(features_seq_tensor[:, :step*2+2])
-                preds, train_out = model.ead_stage_2(imgs_tensor, refined_feats)
+                preds, train_out = model.ead_stage_2(refined_feats)
                 action = ead.get_action(refined_feats)
 
                 # with torch.no_grad():
@@ -161,10 +161,11 @@ def main(epoch_number, batch_size):
 
                 
         with torch.no_grad():
-            _, _, _, _, mAP = eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device)
+            torch.save(ead.state_dict(), 'checkpoints/ead_online.pt')
+            _, _, _, _, mAP = eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device)
             mAP_logger.add_value(mAP)
             mAP_logger.plot()
-            torch.save(ead.state_dict(), 'checkpoints/ead_online_paper.pt')
+            
     
 
 if __name__ == '__main__':

@@ -86,7 +86,7 @@ def eval_online(batch_size=20,  # batch size
 
         patch_tensor = upsample_patch(pm.load_patch(seeds)).to(device).permute(0, 3, 1, 2) if attack_method != 'clean' else None
         imgs_seq_tensor = torch.empty(batch_size, max_steps, 3, 256, 256, device=device)
-        features_seq_tensor = torch.empty(batch_size, max_steps, 256, 8, 8, device=device)
+        features_seq_tensor = torch.empty(batch_size, max_steps, 64, 32, 32, device=device)
 
     
         for step in range(max_steps):
@@ -111,16 +111,16 @@ def eval_online(batch_size=20,  # batch size
             features_seq_tensor[:, step] = feats.squeeze(1)
             
             refined_feats = policy(features_seq_tensor[:, :step*2+1])
-            preds, train_out = model.ead_stage_2(imgs_tensor, refined_feats)
+            preds, train_out = model.ead_stage_2(refined_feats)
             action = policy.get_action(refined_feats)
-            action = torch.tensor([15., 60.], device=device) * torch.randn_like(action)
+            # action = torch.tensor([15., 60.], device=device) * torch.randn_like(action)
 
             # print(action.shape)
             # input(action)
             
 
             with torch.no_grad():
-                post_process_pred(preds[:1], imgs_tensor[:1].permute(0, 3, 1, 2)/255, conf_thres=0.5)
+                post_process_pred(preds[:4], imgs_tensor[:4].permute(0, 3, 1, 2)/255, conf_thres=0.5)
 
         preds_list.append(preds)
         targets_list.append(targets)
@@ -141,12 +141,13 @@ if __name__ == '__main__':
 
     max_steps = 4
     ead = modelTool.get_ead_model(max_steps=max_steps).to(device)
-    ead.load_state_dict(torch.load('checkpoints/ead_offline_paper.pt'), strict=False)
-    ead.load_state_dict(torch.load('checkpoints/ead_online_paper.pt'), strict=False)
+    # ead.load_state_dict(torch.load('checkpoints/ead_offline.pt'), strict=False)
+    # ead.load_state_dict(torch.load('checkpoints/ead_online.pt'), strict=False)
+    ead.load_state_dict(torch.load('checkpoints/ead_online_RL.pt'), strict=False)
     
 
-    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device)
-    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='noise')
-    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='SIB')
-    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='UAP')
-    eval_online(batch_size=40, model=model, policy=ead, max_steps=4, device=device, attack_method='CAMOU')
+    eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device)
+    eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device, attack_method='EOT')
+    eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device, attack_method='SIB')
+    eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device, attack_method='UAP')
+    eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device, attack_method='CAMOU')

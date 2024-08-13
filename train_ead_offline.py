@@ -19,12 +19,12 @@ def main(epoch_number, batch_size):
 
     max_steps = 4
     ead = modelTool.get_ead_model(max_steps=max_steps)
-    # ead.load_state_dict(torch.load('checkpoints/ead_offline.pt'), strict=False)
+    ead.load_state_dict(torch.load('checkpoints/ead_offline.pt'), strict=False)
 
     dataset = EADYOLODataset(split='train', batch_size=batch_size, max_steps=max_steps, attack_method='usap')
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=yolo_collate_fn, drop_last=True)
 
-    optimizer = modelTool.get_optimizer(ead, lr=0.0001)
+    optimizer = modelTool.get_optimizer(ead, lr=0.00001)
     compute_loss = ComputeLoss(model)  # init loss class
 
     loss_logger = Logger(name='EAD YOLO Loss', path='logs')
@@ -48,7 +48,7 @@ def main(epoch_number, batch_size):
             with torch.no_grad():
                 feats = model.ead_stage_1(images)
             refined_feats = ead(feats)
-            preds, train_out = model.ead_stage_2(images[:, -1], refined_feats)
+            preds, train_out = model.ead_stage_2(refined_feats)
             loss, loss_items = compute_loss(train_out, targets[:,-1,:], loss_items=['box', 'obj'])  # loss scaled by batch_size
             loss_logger.add_value(loss.item())
             loss_logger.plot()
@@ -58,15 +58,15 @@ def main(epoch_number, batch_size):
             loss.backward()
             optimizer.step()
             
-            with torch.no_grad():
-                iimg = images[0:4, -1, :].squeeze(1).permute(0, 3, 1, 2) * 255
-                post_process_pred(preds, iimg, conf_thres=0.5)
+            # with torch.no_grad():
+            #     iimg = images[0:4, -1, :].squeeze(1).permute(0, 3, 1, 2) * 255
+            #     post_process_pred(preds, iimg, conf_thres=0.5)
 
         with torch.no_grad():
             _, _, _, _, mAP = evaluation(batch_size=40, model=model, policy=ead, max_steps=4, attack_method='clean')
             mAP_logger.add_value(mAP)
             mAP_logger.plot()
-            torch.save(ead.state_dict(), 'checkpoints/ead_offline_paper.pt')
+            torch.save(ead.state_dict(), 'checkpoints/ead_offline.pt')
 
     
     

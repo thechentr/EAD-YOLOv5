@@ -101,7 +101,7 @@ class EG3DEnv(gym.Env):
         # process imgs
         seqimgs_tensor = imgs_tensor.permute(0, 2, 3, 1).unsqueeze(1) * 255
         feature = self.sensory.ead_stage_1(seqimgs_tensor)
-        preds = self.sensory.ead_stage_2(seqimgs_tensor[:, 0], feature[:,-1,:,:,:])
+        preds = self.sensory.ead_stage_2(feature[:,-1,:,:,:])
 
         post_process_pred(preds, imgs_tensor)
         # draw_boxes_on_grid_image(imgs_tensor*255, annotation)
@@ -126,7 +126,7 @@ class EG3DEnv(gym.Env):
     @torch.no_grad()
     def reset(self, car_idx):
         self.curr_step = -1
-        self.features = np.zeros((self.batch_size, self.max_step+1, 256, 8, 8), dtype=np.float32) # [B, S, F]
+        self.features = np.zeros((self.batch_size, self.max_step+1, 64, 32, 32), dtype=np.float32) # [B, S, F]
         self.annotations = np.zeros((self.batch_size, self.max_step+1, 6), dtype=np.float32) # [B, S, 6]
 
         init_state = torch.zeros((self.batch_size, 2), dtype=torch.float32, requires_grad=True, device=self.device)

@@ -14,6 +14,8 @@ from logger import Logger
 import utils.modelTool as modelTool
 from utils.loss import ComputeLoss
 
+from tqdm import tqdm
+
 class PPO:
     def __init__(self, env:EG3DEnv, batch_size) -> None:
         self.env = env     
@@ -26,7 +28,7 @@ class PPO:
         self.compute_loss = ComputeLoss(self.sensory)
 
         self.ead = modelTool.get_ead_model(max_steps=4)
-        self.ead.load_state_dict(torch.load('checkpoints/ead_offline_paper.pt'), strict=False)
+        self.ead.load_state_dict(torch.load('checkpoints/ead_offline.pt'), strict=False)
         self.ead.eval()
         print(self.ead.action_scaling)
         
@@ -53,18 +55,18 @@ class PPO:
         self.max_timesteps_per_episode = 3
         self.gamma = 0.95
         self.n_updates_per_iteration = 5
-        self.lr = 1e-4
+        self.lr = 1e-5
     
     @torch.no_grad()
     def get_actions(self, obs, targets):
         obs = torch.tensor(obs).cuda()
         targets = torch.tensor(targets).cuda()
 
-        print(obs.shape)
-        print(targets)
+        # print(obs.shape)
+        # print(targets)
         refined_feats = self.ead(obs)
         mean = self.ead.get_action(refined_feats)
-        _, train_out = self.sensory.ead_stage_2(obs[:, -1], refined_feats)
+        _, train_out = self.sensory.ead_stage_2(refined_feats)
         
         loss, _ = self.compute_loss(train_out, targets[:,-1,:], loss_items=['box', 'obj'])  # loss scaled by batch_size
 
@@ -188,8 +190,8 @@ class PPO:
             car_dataset = car_dataset.reshape(len(car_dataset)//self.rollout_batch_size, -1)
             car_dataset = car_dataset.tolist()
 
-            for car_idxs in car_dataset:
-                print(f'epoch: {epoch}, iteration: {car_idxs}')
+            for car_idxs in tqdm(car_dataset):
+                # print(f'epoch: {epoch}, iteration: {car_idxs}')
                 self.ead.eval()
                 batch_obs, batch_acts, batch_log_probs, batch_rtgs = self.rollout(car_idxs)
                 batch_obs = batch_obs.cuda()
@@ -202,7 +204,7 @@ class PPO:
                     self.critic.train()
                     critic_loss_sum = 0
                     for step in range(self.max_timesteps_per_episode):
-                        print("!!!!!!!!!!!!!!!!!!!!!!1",step)
+                        # print("!!!!!!!!!!!!!!!!!!!!!!1",step)
                         mini_batch_obs = batch_obs[step::self.max_timesteps_per_episode,:step+1]
                         mini_batch_acts = batch_acts[step::self.max_timesteps_per_episode]
                         mini_batch_log_probs = batch_log_probs[step::self.max_timesteps_per_episode]
@@ -231,7 +233,8 @@ class PPO:
                     self.critic_logger.add_value(critic_loss.item())
                     self.critic_logger.add_value(critic_loss_sum)
                     self.critic_logger.plot()
-        torch.save(self.ead.state_dict(), 'checkpoints/ead_online_RL.py')
+                    
+            torch.save(self.ead.state_dict(), 'checkpoints/ead_online_RL.py')
 
 torch.manual_seed('114514')
 batch_size = 1
