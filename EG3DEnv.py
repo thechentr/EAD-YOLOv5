@@ -15,6 +15,7 @@ import os
 import pygame
 from utils.post_process import post_process_pred, draw_boxes_on_grid_image
 from gym.envs.registration import register
+import cv2
 
 VIEW_WIDTH = 256
 VIEW_HEIGHT = 256
@@ -82,6 +83,7 @@ class EG3DEnv(gym.Env):
 
     @torch.no_grad()
     def step(self, actions):
+        # actions = torch.zeros((self.batch_size, 2), dtype=torch.float32, requires_grad=True, device=self.device)
         self.curr_step += 1
 
         elev = self.elev_centre + torch.tensor(actions[:,0]).cuda() + 15
@@ -90,8 +92,10 @@ class EG3DEnv(gym.Env):
         azim = torch.clamp(azim, self.azim_centre - 60, self.azim_centre + 60)
         # print(f'elev: {elev[0].item()}, azim: {azim[0].item() + 90}')
 
-        imgs_tensor, rpoints = self.client.step(actions)
+        imgs_tensor, rpoints = self.client.step(actions) # 【B C H W】 0-1
+        # cv2.imwrite('test.png',imgs_tensor[0].permute(1,2,0).detach().cpu().numpy()[:,:,::-1]*255)
         annotation = self._annotate(imgs_tensor)
+        # print(annotation)
 
         for i in range(imgs_tensor.shape[0]):
             patch = TF.perspective(self.patch_tensor[i], opoints(self.patch_tensor[i]), rpoints[i], interpolation=transforms.InterpolationMode.NEAREST, fill=-1)
@@ -99,11 +103,12 @@ class EG3DEnv(gym.Env):
 
         
         # process imgs
-        seqimgs_tensor = imgs_tensor.permute(0, 2, 3, 1).unsqueeze(1) * 255
+        seqimgs_tensor = imgs_tensor.permute(0, 2, 3, 1).unsqueeze(1) * 255 # 【B, 1, H, W, C] 0-255
         feature = self.sensory.ead_stage_1(seqimgs_tensor)
-        preds = self.sensory.ead_stage_2(feature[:,-1,:,:,:])
+        # print(feature.shape) # [B, 1, CF, HF, WF]
+        preds = self.sensory.ead_stage_2(feature[:,0,:,:,:])
 
-        post_process_pred(preds, imgs_tensor)
+        # post_process_pred(preds, imgs_tensor)
         # draw_boxes_on_grid_image(imgs_tensor*255, annotation)
         
         
@@ -112,15 +117,20 @@ class EG3DEnv(gym.Env):
         self.render(imgs_tensor[0])
         pygame.display.flip()
         pygame.event.pump()
-       
 
+        # print(feature.shape)
+        # print(self.features.shape)
+        # print(self.curr_step)
+        
         self.features[:,self.curr_step:self.curr_step+1] = feature.cpu().numpy() # [B, S[curr_step], F] <- [B, 1, F]
         self.annotations[:,self.curr_step:self.curr_step+1] = annotation.unsqueeze(1).cpu().numpy()
+        # print(self.annotations)
         
         state = self.features
         reward = np.zeros(self.batch_size) # [B]
         done = (self.curr_step >= self.max_step)
         info = {'step':self.curr_step, 'annotations':self.annotations}
+        # print(info)
         return state, reward, done, info
                            
     @torch.no_grad()

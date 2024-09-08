@@ -104,7 +104,7 @@ def evaluation(
                 return images
             defense_filter = dummy_defense
         elif defense_method=='jpeg':
-            from utils.jpeg.jpeg import DiffJPEG
+            from defense_utils.jpeg.jpeg import DiffJPEG
             defense_filter = DiffJPEG(quality=75)
         elif defense_method=='lgs':
             from defense_utils.lgs.lgs import LocalGradientsSmoothing
@@ -112,12 +112,12 @@ def evaluation(
         elif defense_method=='sac':
             from defense_utils.sac.patch_detector import PatchDetector
             defense_filter = PatchDetector(3, 1, base_filter=16, square_sizes=[40, 10, 5], n_patch=1).cuda()
-            defense_filter.unet.load_state_dict(torch.load('defense_utils/sac/unet_eot.pth', map_location='cuda'))
+            defense_filter.unet.load_state_dict(torch.load('defense_utils/sac/unet_usap.pth', map_location='cuda'))
             defense_filter.eval()
         elif defense_method=='pz':
             from defense_utils.pz.patch_detector import PatchDetector
             defense_filter = PatchDetector(3, 1, base_filter=16).cuda()
-            defense_filter.unet.load_state_dict(torch.load('defense_utils/sac/unet_eot.pth', map_location='cuda'))
+            defense_filter.unet.load_state_dict(torch.load('defense_utils/sac/unet_usap.pth', map_location='cuda'))
             defense_filter.eval()
         else:
             raise NotImplementedError

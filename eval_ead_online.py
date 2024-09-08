@@ -2,7 +2,7 @@ import torch
 import utils.modelTool as modelTool
 from dataset_yolo import EADYOLODataset, yolo_collate_fn
 from torch.utils.data import DataLoader
-from logger import Logger
+from utils.logger import Logger
 from utils.loss import ComputeLoss
 from eval_ead import evaluation
 from patch import apply_patch, upsample_patch, PatchManager
@@ -79,6 +79,9 @@ def eval_online(batch_size=20,  # batch size
     pm = PatchManager(attack_method, 'dataset/patch_train') if attack_method != 'clean' else None
     render = EG3DRender(device=device)
 
+    model.eval()
+    policy.eval()
+
     preds_list= []
     targets_list =[]
     seeds_list = list(range(10000, 13400, 17))
@@ -120,7 +123,9 @@ def eval_online(batch_size=20,  # batch size
             
 
             with torch.no_grad():
+                input('k')
                 post_process_pred(preds[:4], imgs_tensor[:4].permute(0, 3, 1, 2)/255, conf_thres=0.5)
+                
 
         preds_list.append(preds)
         targets_list.append(targets)
@@ -141,13 +146,13 @@ if __name__ == '__main__':
 
     max_steps = 4
     ead = modelTool.get_ead_model(max_steps=max_steps).to(device)
-    # ead.load_state_dict(torch.load('checkpoints/ead_offline.pt'), strict=False)
-    # ead.load_state_dict(torch.load('checkpoints/ead_online.pt'), strict=False)
-    ead.load_state_dict(torch.load('checkpoints/ead_online_RL.pt'), strict=False)
+    ead.load_state_dict(torch.load('checkpoints/ead_offline_s4.pt'), strict=False)
+    # ead.load_state_dict(torch.load('checkpoints/ead_online_SOTA.pt'), strict=False)
+    # ead.load_state_dict(torch.load('checkpoints/ead_online_RL.pt'), strict=False)
     
 
-    eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device)
-    eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device, attack_method='EOT')
-    eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device, attack_method='SIB')
-    eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device, attack_method='UAP')
-    eval_online(batch_size=20, model=model, policy=ead, max_steps=4, device=device, attack_method='CAMOU')
+    # eval_online(batch_size=1, model=model, policy=ead, max_steps=4, device=device)
+    # eval_online(batch_size=1, model=model, policy=ead, max_steps=4, device=device, attack_method='EOT')
+    # eval_online(batch_size=1, model=model, policy=ead, max_steps=4, device=device, attack_method='SIB')
+    eval_online(batch_size=1, model=model, policy=ead, max_steps=4, device=device, attack_method='UAP')
+    eval_online(batch_size=1, model=model, policy=ead, max_steps=4, device=device, attack_method='CAMOU')

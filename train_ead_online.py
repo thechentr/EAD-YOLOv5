@@ -2,7 +2,7 @@ import torch
 import utils.modelTool as modelTool
 from dataset_yolo import EADYOLODataset, yolo_collate_fn
 from torch.utils.data import DataLoader
-from logger import Logger
+from utils.logger import Logger
 from utils.loss import ComputeLoss
 from eval_ead_online import eval_online
 from patch import apply_patch, upsample_patch, PatchManager
@@ -70,14 +70,14 @@ def main(epoch_number, batch_size):
 
     max_steps = 4
     ead = modelTool.get_ead_model(max_steps=max_steps).to(device)
-    ead.load_state_dict(torch.load('checkpoints/ead_offline.pt'), strict=False)
+    ead.load_state_dict(torch.load('checkpoints/ead_offline_s4.pt'), strict=False)
     # ead.load_state_dict(torch.load('checkpoints/ead_online.pt'), strict=False)
     
 
     
     render = EG3DRender(device=device)
 
-    optimizer = modelTool.get_optimizer(ead, lr=0.00001)
+    optimizer = modelTool.get_optimizer(ead, lr=0.0001)
     compute_loss = ComputeLoss(model)  # init loss class
 
     loss_logger = Logger(name='EAD YOLO Loss', path='logs')
@@ -121,6 +121,7 @@ def main(epoch_number, batch_size):
                 features_seq_tensor[:, step*2] = feats.squeeze(1)
                 
                 refined_feats = ead(features_seq_tensor[:, :step*2+1])
+                input(refined_feats.shape)
                 preds, train_out = model.ead_stage_2(refined_feats)
                 action = ead.get_action(refined_feats)
 

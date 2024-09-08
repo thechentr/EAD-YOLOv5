@@ -2,7 +2,7 @@ import torch
 import utils.modelTool as modelTool
 from dataset_yolo import EADYOLODataset, yolo_collate_fn
 from torch.utils.data import DataLoader
-from logger import Logger
+from utils.logger import Logger
 from utils.loss import ComputeLoss
 from eval_ead import evaluation
 from patch import apply_patch, upsample_patch
@@ -19,7 +19,7 @@ def main(epoch_number, batch_size):
 
     max_steps = 4
     ead = modelTool.get_ead_model(max_steps=max_steps)
-    ead.load_state_dict(torch.load('checkpoints/ead_offline.pt'), strict=False)
+    # ead.load_state_dict(torch.load('checkpoints/ead_offline.pt'), strict=False)
 
     dataset = EADYOLODataset(split='train', batch_size=batch_size, max_steps=max_steps, attack_method='usap')
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=yolo_collate_fn, drop_last=True)
@@ -45,28 +45,30 @@ def main(epoch_number, batch_size):
             # for step in range(max_steps):
             #     cv2.imwrite(f'logs/test{step}.png', images[0,step].detach().cpu().numpy()[:,:,::-1])
             
-            with torch.no_grad():
-                feats = model.ead_stage_1(images)
-            refined_feats = ead(feats)
-            preds, train_out = model.ead_stage_2(refined_feats)
-            loss, loss_items = compute_loss(train_out, targets[:,-1,:], loss_items=['box', 'obj'])  # loss scaled by batch_size
-            loss_logger.add_value(loss.item())
-            loss_logger.plot()
+            for step in range(1, 5):
+                with torch.no_grad():
+                    feats = model.ead_stage_1(images[:, :step])
+                refined_feats = ead(feats)
+                preds, train_out = model.ead_stage_2(refined_feats)
+                loss, loss_items = compute_loss(train_out, targets[:,step-1,:], loss_items=['box', 'obj'])  # loss scaled by batch_size
+                loss_logger.add_value(loss.item())
+                loss_logger.plot()
 
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
             
-            # with torch.no_grad():
-            #     iimg = images[0:4, -1, :].squeeze(1).permute(0, 3, 1, 2) * 255
-            #     post_process_pred(preds, iimg, conf_thres=0.5)
+                with torch.no_grad():
+                    iimg = images[0:4, step-1, :].squeeze(1).permute(0, 3, 1, 2) * 255
+                    post_process_pred(preds, iimg, conf_thres=0.5)
 
         with torch.no_grad():
+            print(epoch, '--------------------------')
             _, _, _, _, mAP = evaluation(batch_size=40, model=model, policy=ead, max_steps=4, attack_method='clean')
             mAP_logger.add_value(mAP)
             mAP_logger.plot()
-            torch.save(ead.state_dict(), 'checkpoints/ead_offline.pt')
+            torch.save(ead.state_dict(), 'checkpoints/ead_offline_s4.pt')
 
     
     

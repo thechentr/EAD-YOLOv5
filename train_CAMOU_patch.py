@@ -5,7 +5,7 @@ from dataset import TrainCarlaPatchDataset
 from patch import apply_patch, upsample_patch
 from utils.post_process import post_process_pred
 from torch.utils.data import DataLoader
-from logger import Logger
+from utils.logger import Logger
 import os
 import torch.nn as nn
 import torch.optim as optim

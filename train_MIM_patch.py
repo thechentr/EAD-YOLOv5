@@ -6,7 +6,7 @@ from patch import init_patch, apply_patch, upsample_patch
 from utils.post_process import post_process_pred
 from attack import MIM_attack_step, DIM_attack_transform
 from torch.utils.data import DataLoader
-from logger import Logger
+from utils.logger import Logger
 import os
 import numpy as np
 from tqdm import tqdm

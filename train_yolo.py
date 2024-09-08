@@ -2,7 +2,7 @@ import torch
 import utils.modelTool as modelTool
 from dataset_yolo import YOLODataset, yolo_collate_fn
 from torch.utils.data import DataLoader
-from logger import Logger
+from utils.logger import Logger
 from utils.loss import ComputeLoss
 from eval import evaluation
 from patch import init_usap_patch, apply_patch

@@ -8,7 +8,7 @@ from defense_utils.sac.dataset import CarlaDatasetSAC
 from torch.utils.data import DataLoader
 from defense_utils.sac.unet import UNet
 from patch import upsample_patch, apply_patch
-from logger import Logger
+from utils.logger import Logger
 
 def main(attack_method):
     epoch_number = 1
@@ -52,7 +52,7 @@ def main(attack_method):
                 cv2.imwrite('obj.png',images[0].detach().cpu().numpy()[:,:,::-1])
                 cv2.imwrite('mask.png',masks[0].detach().cpu().numpy()[:,:,::-1])
                 cv2.imwrite('pred_mask.png',torch.sigmoid(pred_mask)[0].detach().permute(1,2,0).cpu().numpy()[:,:,::-1]*255)
-        torch.save(unet.state_dict(),f'defense_utils/sac/unet_eot.pth')
+        torch.save(unet.state_dict(),f'defense_utils/sac/unet_usap.pth')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

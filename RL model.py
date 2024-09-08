@@ -3,7 +3,7 @@ import torch
 import utils.modelTool as modelTool
 from dataset_yolo import EADYOLODataset, yolo_collate_fn
 from torch.utils.data import DataLoader
-from logger import Logger
+from utils.logger import Logger
 from utils.loss import ComputeLoss
 from eval_ead import evaluation
 from patch import apply_patch, upsample_patch

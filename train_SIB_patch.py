@@ -6,7 +6,7 @@ from patch import init_patch, apply_patch, upsample_patch
 from utils.post_process import post_process_pred
 from attack import PGD_attack_step
 from torch.utils.data import DataLoader
-from logger import Logger
+from utils.logger import Logger
 import os
 from tqdm import tqdm
 
